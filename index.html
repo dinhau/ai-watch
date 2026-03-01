@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AI 手錶監控</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Orbitron:wght@400;700;900&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+  :root{
+    --bg:#070b14;--card:rgba(17,24,39,0.85);--card2:rgba(17,24,39,0.6);
+    --border:rgba(55,65,81,0.5);--cyan:#22d3ee;--green:#34d399;
+    --yellow:#fbbf24;--red:#f87171;--purple:#a78bfa;
+    --text:#e2e8f0;--dim:#64748b;
+  }
+
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;min-height:100dvh;padding:0 0 40px}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(34,211,238,0.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(139,92,246,0.06) 0%,transparent 50%);pointer-events:none;z-index:0}
+
+  .app{position:relative;z-index:1;max-width:420px;margin:0 auto;padding:16px}
+
+  .header{text-align:center;padding:14px 0 10px}
+  .header h1{font-family:'Orbitron',sans-serif;font-size:1.05em;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px}
+  .header-sub{font-size:.72em;color:var(--dim);margin-top:3px}
+
+  .conn-bar{display:flex;justify-content:center;align-items:center;gap:10px;margin:8px 0 14px}
+  #cBtn{font-family:'Orbitron',sans-serif;font-size:.8em;font-weight:700;padding:9px 24px;border:2px solid var(--cyan);border-radius:40px;background:transparent;color:var(--cyan);cursor:pointer;transition:all .3s;letter-spacing:1px}
+  #cBtn:active{background:var(--cyan);color:var(--bg)}
+  #cBtn.on{border-color:var(--green);color:var(--green)}
+  .dot{width:10px;height:10px;border-radius:50%;background:#333;transition:all .3s}
+  .dot.on{background:var(--green);box-shadow:0 0 10px rgba(52,211,153,.7);animation:pulse 2s infinite}
+  @keyframes pulse{50%{transform:scale(1.4)}}
+  .stxt{font-size:.78em;color:var(--dim)}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:12px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:relative;overflow:hidden}
+  .card::after{content:'';position:absolute;top:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.35),transparent)}
+  .clbl{font-family:'Orbitron',sans-serif;font-size:.62em;color:var(--dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
+
+  /* Status */
+  .sc{text-align:center;padding:20px 16px}
+  .emoji-w{position:relative;display:inline-block}
+  #emo{font-size:4.2em;line-height:1;transition:all .4s}
+  .ering{position:absolute;inset:-12px;border-radius:50%;border:3px solid var(--green);opacity:.3;transition:all .4s;animation:rp 3s ease-in-out infinite}
+  @keyframes rp{0%,100%{transform:scale(1);opacity:.2}50%{transform:scale(1.08);opacity:.5}}
+  #sLabel{font-family:'Orbitron',sans-serif;font-size:1.2em;font-weight:900;margin-top:10px;letter-spacing:2px;color:var(--green)}
+  .sdet{display:flex;justify-content:center;gap:24px;margin-top:10px}
+  .sdet-v{font-family:'Orbitron',sans-serif;font-size:1.3em;font-weight:700}
+  .sdet-u{font-size:.68em;color:var(--dim);margin-top:2px}
+  .gbar{margin-top:14px;padding:0 8px}
+  .gtrack{position:relative;height:10px;border-radius:5px;background:linear-gradient(90deg,rgba(248,113,113,.25) 0%,rgba(248,113,113,.25) 37.2%,rgba(52,211,153,.3) 37.2%,rgba(52,211,153,.3) 56.8%,rgba(251,191,36,.25) 56.8%,rgba(251,191,36,.25) 100%);overflow:visible}
+  .gfill{position:absolute;top:0;left:0;height:100%;border-radius:5px;transition:width .6s,background .4s;width:0}
+  .gthumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--green);box-shadow:0 0 10px rgba(52,211,153,.6);transition:left .6s,border-color .4s;left:0}
+  .glbls{display:flex;justify-content:space-between;margin-top:5px;font-size:.6em;color:var(--dim)}
+
+  /* Recording */
+  .rc{text-align:center}
+  .rc-h{display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:6px}
+  .rc-d{width:12px;height:12px;border-radius:50%;background:#333;transition:all .3s}
+  .rc-d.on{background:var(--red);box-shadow:0 0 12px rgba(248,113,113,.8);animation:pulse .8s infinite}
+  .rc-s{font-family:'Orbitron',sans-serif;font-size:.72em;color:var(--dim);letter-spacing:2px}
+  .rc-s.on{color:var(--red)}
+  .rc-t{font-family:'Orbitron',sans-serif;font-size:2.8em;font-weight:900;line-height:1;margin:2px 0}
+  .rc-sub{font-size:.72em;color:var(--dim);margin-bottom:6px}
+  .rc-g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .rc-g.hid{display:none}
+  .rc-b{background:rgba(255,255,255,.03);border-radius:10px;padding:8px 6px;text-align:center}
+  .rc-bv{font-family:'Orbitron',sans-serif;font-size:.95em;font-weight:700}
+  .rc-bl{font-size:.62em;color:var(--dim);margin-top:2px}
+
+  /* Chart */
+  .cc{padding:14px 8px 8px}
+  #chart{width:100%;height:150px;display:block}
+
+  /* ===== AI Analysis Card ===== */
+  .ai-card{background:linear-gradient(135deg,rgba(17,24,39,.9),rgba(30,20,50,.85));border:1px solid rgba(139,92,246,.3);position:relative}
+  .ai-card::after{background:linear-gradient(90deg,transparent,rgba(139,92,246,.4),transparent)}
+  .ai-badge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,var(--purple),var(--cyan));padding:3px 10px;border-radius:20px;font-size:.6em;font-weight:700;color:#fff;letter-spacing:1px;margin-bottom:10px;font-family:'Orbitron',sans-serif}
+
+  /* Score Ring */
+  .score-section{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+  .score-ring{position:relative;width:90px;height:90px;flex-shrink:0}
+  .score-ring canvas{width:90px;height:90px}
+  .score-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .score-val{font-family:'Orbitron',sans-serif;font-size:1.8em;font-weight:900;line-height:1}
+  .score-max{font-size:.6em;color:var(--dim)}
+  .score-comment{flex:1}
+  .score-grade{font-family:'Orbitron',sans-serif;font-size:1em;font-weight:900;letter-spacing:1px;margin-bottom:4px}
+  .score-desc{font-size:.78em;color:var(--dim);line-height:1.5}
+
+  /* Analysis Sections */
+  .ai-section{margin-top:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:12px;border-left:3px solid var(--cyan)}
+  .ai-section.warn{border-left-color:var(--yellow)}
+  .ai-section.good{border-left-color:var(--green)}
+  .ai-section.tip{border-left-color:var(--purple)}
+  .ai-s-title{font-size:.75em;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  .ai-s-body{font-size:.78em;color:var(--dim);line-height:1.7}
+  .ai-s-body strong{color:var(--text)}
+
+  /* Trend */
+  .trend-row{display:flex;gap:8px;margin-top:10px}
+  .trend-item{flex:1;background:rgba(255,255,255,.03);border-radius:10px;padding:8px;text-align:center}
+  .trend-arrow{font-size:1.2em}
+  .trend-val{font-family:'Orbitron',sans-serif;font-size:.85em;font-weight:700;margin-top:2px}
+  .trend-lbl{font-size:.6em;color:var(--dim);margin-top:2px}
+
+  /* AI Button */
+  .ai-btn-wrap{text-align:center;margin-top:14px}
+  #aiBtn{font-family:'Orbitron',sans-serif;font-size:.75em;padding:10px 24px;border:1.5px solid var(--purple);border-radius:30px;background:transparent;color:var(--purple);cursor:pointer;transition:all .3s;letter-spacing:1px}
+  #aiBtn:active{background:var(--purple);color:#fff}
+  #aiBtn:disabled{opacity:.4;cursor:default}
+  .ai-response{margin-top:12px;padding:14px;background:rgba(139,92,246,.08);border-radius:12px;border:1px solid rgba(139,92,246,.2);font-size:.8em;line-height:1.8;color:var(--text);white-space:pre-wrap}
+  .ai-response.hid{display:none}
+  .ai-loading{text-align:center;color:var(--purple);font-size:.8em;padding:12px}
+  .ai-loading.hid{display:none}
+
+  /* Log */
+  #logBox{background:rgba(0,0,0,.35);border-radius:10px;padding:10px;height:100px;overflow-y:auto;font-family:'Courier New',monospace;font-size:.7em;line-height:1.5;color:var(--green)}
+  #logBox::-webkit-scrollbar{width:4px}
+  #logBox::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+  .lt{color:var(--dim)}.lc{color:var(--cyan)}.lw{color:var(--yellow)}.le{color:var(--red)}
+
+  .tip-area{text-align:center;font-size:.68em;color:var(--dim);margin-top:14px;line-height:1.6;padding:0 8px}
+  .tip-area a{color:var(--cyan);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🔬 AI 手錶監控</h1>
+    <div class="header-sub">會判斷光線好壞的 AI 手錶 — 即時儀表板</div>
+  </div>
+
+  <div class="conn-bar">
+    <div class="dot" id="dot"></div>
+    <span class="stxt" id="stxt">未連線</span>
+    <button id="cBtn" onclick="toggleBLE()">🔌 連線</button>
+  </div>
+
+  <!-- Status -->
+  <div class="card sc">
+    <div class="clbl">光線狀態</div>
+    <div class="emoji-w"><div class="ering" id="eRing"></div><div id="emo">😊</div></div>
+    <div id="sLabel">等待連線</div>
+    <div class="sdet">
+      <div><div class="sdet-v" id="lightN" style="color:var(--cyan)">--</div><div class="sdet-u">光感測值</div></div>
+      <div><div class="sdet-v" id="luxN" style="color:var(--yellow)">--</div><div class="sdet-u">估算 Lux</div></div>
+    </div>
+    <div class="gbar">
+      <div class="gtrack"><div class="gfill" id="gF"></div><div class="gthumb" id="gT"></div></div>
+      <div class="glbls"><span>🌙 太暗</span><span>✅ 適合</span><span>☀️ 太亮</span></div>
+    </div>
+  </div>
+
+  <!-- Recording -->
+  <div class="card rc">
+    <div class="clbl">閱讀計時</div>
+    <div class="rc-h"><div class="rc-d" id="rD"></div><div class="rc-s" id="rS">待機中</div></div>
+    <div class="rc-t" id="rT">00:00</div>
+    <div class="rc-sub" id="rSub">按 micro:bit B 鍵開始</div>
+    <div class="rc-g hid" id="rG">
+      <div class="rc-b"><div class="rc-bv" id="rGood" style="color:var(--green)">--</div><div class="rc-bl">光線適合時間</div></div>
+      <div class="rc-b"><div class="rc-bv" id="rLux" style="color:var(--cyan)">--</div><div class="rc-bl">平均照度</div></div>
+      <div class="rc-b"><div class="rc-bv" id="rAvgL" style="color:var(--yellow)">--</div><div class="rc-bl">平均光值</div></div>
+      <div class="rc-b"><div class="rc-bv" id="rSt">--</div><div class="rc-bl">平均評價</div></div>
+    </div>
+  </div>
+
+  <!-- AI Analysis -->
+  <div class="card ai-card" id="aiCard" style="display:none">
+    <div class="clbl">AI 智慧分析</div>
+    <div class="ai-badge">🧠 AI ANALYSIS</div>
+
+    <!-- Score -->
+    <div class="score-section">
+      <div class="score-ring">
+        <canvas id="scoreCanvas" width="180" height="180"></canvas>
+        <div class="score-num">
+          <div class="score-val" id="scoreVal">--</div>
+          <div class="score-max">/ 100</div>
+        </div>
+      </div>
+      <div class="score-comment">
+        <div class="score-grade" id="scoreGrade">—</div>
+        <div class="score-desc" id="scoreDesc">完成一次閱讀後自動分析</div>
+      </div>
+    </div>
+
+    <!-- Reading Habit -->
+    <div class="ai-section" id="secHabit">
+      <div class="ai-s-title">📖 閱讀習慣建議</div>
+      <div class="ai-s-body" id="txtHabit">等待數據...</div>
+    </div>
+
+    <!-- Eye Care -->
+    <div class="ai-section tip" id="secEye">
+      <div class="ai-s-title">👁️ 護眼小提示</div>
+      <div class="ai-s-body" id="txtEye">等待數據...</div>
+    </div>
+
+    <!-- Trend -->
+    <div class="ai-section good" id="secTrend" style="display:none">
+      <div class="ai-s-title">📊 歷史趨勢分析</div>
+      <div class="ai-s-body" id="txtTrend"></div>
+      <div class="trend-row" id="trendRow"></div>
+    </div>
+
+    <!-- Claude AI Button -->
+    <div class="ai-btn-wrap">
+      <button id="aiBtn" onclick="askClaudeAI()" disabled>🤖 請 AI 深度分析</button>
+      <div class="ai-loading hid" id="aiLoad">🤖 AI 分析中...</div>
+      <div class="ai-response hid" id="aiResp"></div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card cc">
+    <div class="clbl">光線歷史曲線</div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="clbl">通訊紀錄</div>
+    <div id="logBox"></div>
+  </div>
+
+  <div class="tip-area" id="tipArea"></div>
+</div>
+
+<script>
+// ===== BLE =====
+const UART_SVC='6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_TX='6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+let device=null,server=null,txChar=null,bleOn=false;
+let lightHist=[],luxHist=[];
+const MAX_PTS=80;
+
+// ===== Session History (for trend) =====
+let sessions = []; // [{score,totalS,goodS,avgL,avgLux,avgState,goodRatio,ts}]
+let latestSession = null;
+
+async function toggleBLE(){
+  if(bleOn){if(device&&device.gatt.connected)device.gatt.disconnect();setC(false);return}
+  try{
+    log('掃描 micro:bit...','lc');
+    device=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'BBC micro:bit'}],optionalServices:[UART_SVC]});
+    device.addEventListener('gattserverdisconnected',()=>{setC(false);log('藍牙已斷線','lw')});
+    server=await device.gatt.connect();
+    const svc=await server.getPrimaryService(UART_SVC);
+    txChar=await svc.getCharacteristic(UART_TX);
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged',onData);
+    setC(true);log('✓ 已連線：'+device.name,'lc');
+  }catch(e){log('連線失敗: '+e.message,'le')}
+}
+
+function setC(s){
+  bleOn=s;
+  document.getElementById('dot').className='dot'+(s?' on':'');
+  document.getElementById('stxt').textContent=s?'已連線':'未連線';
+  const b=document.getElementById('cBtn');b.className=s?'on':'';b.textContent=s?'✓ 已連線':'🔌 連線';
+}
+
+let buf='';
+function onData(e){
+  buf+=new TextDecoder().decode(e.target.value);
+  const ls=buf.split('\n');buf=ls.pop();
+  for(const l of ls){const t=l.trim();if(t)parseLine(t)}
+}
+
+function parseLine(line){
+  log(line,'lc');
+  if(line.startsWith('LIGHT:')){
+    const p={};line.split(',').forEach(s=>{const[k,v]=s.split(':');p[k]=v});
+    const light=parseInt(p['LIGHT'])||0,lux=parseInt(p['LUX'])||0,state=p['STATE']||'GOOD';
+    lightHist.push(light);luxHist.push(lux);
+    if(lightHist.length>MAX_PTS){lightHist.shift();luxHist.shift()}
+    updateStatus(light,lux,state);drawChart();
+  }
+  if(line==='REC:START'){
+    document.getElementById('rD').className='rc-d on';
+    document.getElementById('rS').className='rc-s on';
+    document.getElementById('rS').textContent='● 計時中';
+    document.getElementById('rSub').textContent='正在記錄光線品質...';
+    document.getElementById('rG').className='rc-g hid';
+  }
+  if(line.startsWith('REC:ON')){const m=line.match(/T:(\d+:\d+)/);if(m)document.getElementById('rT').textContent=m[1]}
+  if(line.startsWith('REC_END')){
+    document.getElementById('rD').className='rc-d';
+    document.getElementById('rS').className='rc-s';
+    document.getElementById('rS').textContent='計時結束';
+    document.getElementById('rSub').textContent='最近一次閱讀結果';
+    const totalM=line.match(/TOTAL:(\d+:\d+)/),goodM=line.match(/GOOD:(\d+:\d+)/);
+    const avgLuxM=line.match(/AVG_LUX:(\d+)/),avgLM=line.match(/AVG_L:(\d+)/),avgSM=line.match(/AVG_STATE:(\w+)/);
+    if(totalM)document.getElementById('rT').textContent=totalM[1];
+    if(goodM)document.getElementById('rGood').textContent=goodM[1];
+    if(avgLuxM)document.getElementById('rLux').textContent=avgLuxM[1]+' lx';
+    if(avgLM)document.getElementById('rAvgL').textContent=avgLM[1];
+    if(avgSM){
+      const el=document.getElementById('rSt'),s=avgSM[1];
+      if(s==='GOOD'){el.textContent='✅ 適合';el.style.color='var(--green)'}
+      else if(s==='DARK'){el.textContent='🌙 太暗';el.style.color='var(--red)'}
+      else{el.textContent='☀️ 太亮';el.style.color='var(--yellow)'}
+    }
+    document.getElementById('rG').className='rc-g';
+
+    // Parse for analysis
+    const totalS=parseTimeStr(totalM?totalM[1]:'00:00');
+    const goodS=parseTimeStr(goodM?goodM[1]:'00:00');
+    const avgLux=avgLuxM?parseInt(avgLuxM[1]):0;
+    const avgL=avgLM?parseInt(avgLM[1]):0;
+    const avgState=avgSM?avgSM[1]:'GOOD';
+    const goodRatio=totalS>0?goodS/totalS:0;
+
+    // Run AI analysis
+    runOfflineAnalysis(totalS,goodS,avgL,avgLux,avgState,goodRatio);
+  }
+}
+
+function parseTimeStr(s){const p=s.split(':');return parseInt(p[0])*60+parseInt(p[1])}
+
+function updateStatus(light,lux,state){
+  document.getElementById('lightN').textContent=light;
+  document.getElementById('luxN').textContent=lux;
+  const emo=document.getElementById('emo'),lbl=document.getElementById('sLabel'),ring=document.getElementById('eRing');
+  const fill=document.getElementById('gF'),thumb=document.getElementById('gT');
+  const pct=Math.max(0,Math.min(100,(light/255)*100));
+  thumb.style.left=pct+'%';
+  let color;
+  if(state==='DARK'){emo.textContent='😴';lbl.textContent='光線不足';color='var(--red)';fill.style.background='var(--red)'}
+  else if(state==='BRIGHT'){emo.textContent='😮';lbl.textContent='光線過強';color='var(--yellow)';fill.style.background='linear-gradient(90deg,var(--green),var(--yellow))'}
+  else{emo.textContent='😊';lbl.textContent='適合閱讀';color='var(--green)';fill.style.background='linear-gradient(90deg,var(--cyan),var(--green))'}
+  lbl.style.color=color;ring.style.borderColor=color;thumb.style.borderColor=color;fill.style.width=pct+'%';
+}
+
+// ========================================
+// OFFLINE RULE-BASED AI ANALYSIS
+// ========================================
+function runOfflineAnalysis(totalS,goodS,avgL,avgLux,avgState,goodRatio){
+  // Show card
+  document.getElementById('aiCard').style.display='';
+
+  // === 1. SCORE ===
+  // Good time ratio (0-60 pts)
+  const scorePart1 = Math.min(60, Math.round(goodRatio * 60));
+  // Avg lux in ideal range 500-1000 (0-25 pts)
+  let scorePart2 = 0;
+  if(avgLux >= 500 && avgLux <= 1000){
+    scorePart2 = 25;
+  } else if(avgLux >= 300 && avgLux < 500){
+    scorePart2 = Math.round(15 * (avgLux - 300) / 200);
+  } else if(avgLux > 1000 && avgLux <= 1500){
+    scorePart2 = Math.round(20 * (1500 - avgLux) / 500);
+  }
+  // Duration bonus (0-15 pts): 5-30 min is ideal
+  let scorePart3 = 0;
+  if(totalS >= 300 && totalS <= 1800) scorePart3 = 15;
+  else if(totalS >= 120 && totalS < 300) scorePart3 = 10;
+  else if(totalS > 1800 && totalS <= 2700) scorePart3 = 10;
+  else if(totalS > 2700) scorePart3 = 5;
+  else scorePart3 = 5;
+
+  const score = Math.min(100, scorePart1 + scorePart2 + scorePart3);
+  const session = {score,totalS,goodS,avgL,avgLux,avgState,goodRatio,ts:Date.now()};
+  sessions.push(session);
+  latestSession = session;
+
+  // Draw score ring
+  drawScoreRing(score);
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('scoreVal').style.color =
+    score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--yellow)' : 'var(--red)';
+
+  // Grade
+  let grade, gradeColor, gradeDesc;
+  if(score >= 90){ grade='🌟 優秀'; gradeColor='var(--green)'; gradeDesc='光線環境非常好，繼續保持！' }
+  else if(score >= 75){ grade='👍 良好'; gradeColor='var(--green)'; gradeDesc='光線環境不錯，有小地方可以改善。' }
+  else if(score >= 60){ grade='⚠️ 普通'; gradeColor='var(--yellow)'; gradeDesc='光線環境一般，建議調整閱讀位置或燈光。' }
+  else if(score >= 40){ grade='❗ 偏差'; gradeColor='var(--yellow)'; gradeDesc='光線環境不太理想，容易造成眼睛疲勞。' }
+  else{ grade='🚨 不佳'; gradeColor='var(--red)'; gradeDesc='光線環境很差，強烈建議更換閱讀地點！' }
+
+  document.getElementById('scoreGrade').textContent = grade;
+  document.getElementById('scoreGrade').style.color = gradeColor;
+  document.getElementById('scoreDesc').textContent = gradeDesc;
+
+  // === 2. READING HABIT SUGGESTIONS ===
+  let habits = [];
+  if(totalS > 1800){
+    habits.push('⏰ 你這次閱讀了 <strong>' + Math.round(totalS/60) + ' 分鐘</strong>，超過 30 分鐘了！建議每 20-30 分鐘起來休息一下，做做伸展操。');
+  } else if(totalS >= 600){
+    habits.push('✅ 閱讀時間 <strong>' + Math.round(totalS/60) + ' 分鐘</strong>，長度適中。記得下次閱讀前也設定一個計時提醒。');
+  } else {
+    habits.push('📝 這次只讀了 <strong>' + Math.round(totalS/60) + ' 分鐘</strong>，時間較短。持續記錄可以幫助養成閱讀習慣喔！');
+  }
+
+  if(goodRatio < 0.5){
+    habits.push('💡 只有 <strong>' + Math.round(goodRatio*100) + '%</strong> 的時間光線是適合閱讀的。建議移到窗邊或打開檯燈，讓光線保持在 500-1000 lux。');
+    document.getElementById('secHabit').className = 'ai-section warn';
+  } else if(goodRatio < 0.8){
+    habits.push('💡 有 <strong>' + Math.round(goodRatio*100) + '%</strong> 的時間光線適合閱讀，但仍有改善空間。注意光源是否會被遮擋。');
+    document.getElementById('secHabit').className = 'ai-section';
+  } else {
+    habits.push('💡 <strong>' + Math.round(goodRatio*100) + '%</strong> 的時間光線都很棒！你選的閱讀位置很好。');
+    document.getElementById('secHabit').className = 'ai-section good';
+  }
+
+  if(avgState === 'DARK'){
+    habits.push('🔦 平均光線偏暗（約 <strong>' + avgLux + ' lux</strong>），瞳孔會放大、眼睛容易痠。建議增加照明，理想值是 500-1000 lux。');
+  } else if(avgState === 'BRIGHT'){
+    habits.push('☀️ 平均光線偏亮（約 <strong>' + avgLux + ' lux</strong>），可能造成眩光。建議拉上窗簾或調暗燈光。');
+  }
+
+  document.getElementById('txtHabit').innerHTML = habits.join('<br><br>');
+
+  // === 3. EYE CARE TIPS ===
+  const allTips = [
+    '👀 <strong>20-20-20 法則</strong>：每讀 20 分鐘，看 20 英尺（6 公尺）遠的東西 20 秒，讓睫狀肌放鬆。',
+    '🌳 <strong>戶外活動很重要</strong>：研究顯示每天至少 40-80 分鐘的戶外時間，可以降低近視風險。陽光能刺激視網膜分泌多巴胺，抑制眼球軸拉長。',
+    '📏 <strong>閱讀距離</strong>：眼睛距離書本至少 30-40 公分。距離太近會增加眼睛調節負擔。',
+    '💧 <strong>記得眨眼</strong>：專注閱讀時眨眼頻率會降低，容易乾眼。可以刻意提醒自己多眨眼。',
+    '🛏️ <strong>睡前避免強光</strong>：晚上的藍白光會抑制褪黑激素分泌，影響睡眠品質。睡前 1 小時建議用暖黃光。',
+    '🥕 <strong>護眼飲食</strong>：多吃含葉黃素（菠菜、玉米）和維生素 A（紅蘿蔔）的食物，對視網膜健康有幫助。',
+    '💺 <strong>正確坐姿</strong>：背部挺直、雙腳平放地面。頭不要前傾太多，否則頸椎和眼睛都會受影響。',
+    '📱 <strong>螢幕亮度</strong>：手機和平板的亮度應跟周圍環境接近，太亮或太暗都不好。'
+  ];
+  // Pick 2 relevant + 1 random
+  let tips = [];
+  if(avgState === 'DARK') tips.push(allTips[0], allTips[4]);
+  else if(avgState === 'BRIGHT') tips.push(allTips[0], allTips[7]);
+  else tips.push(allTips[1], allTips[3]);
+  // Add a random one that's not already selected
+  const remaining = allTips.filter(t => !tips.includes(t));
+  tips.push(remaining[Math.floor(Math.random() * remaining.length)]);
+  document.getElementById('txtEye').innerHTML = tips.join('<br><br>');
+
+  // === 4. TREND ANALYSIS ===
+  if(sessions.length >= 2){
+    document.getElementById('secTrend').style.display = '';
+    const prev = sessions[sessions.length - 2];
+    const curr = sessions[sessions.length - 1];
+
+    let trendText = [];
+    const scoreDiff = curr.score - prev.score;
+    if(scoreDiff > 0){
+      trendText.push('📈 光線品質評分比上次<strong>進步了 ' + scoreDiff + ' 分</strong>！');
+    } else if(scoreDiff < 0){
+      trendText.push('📉 光線品質評分比上次<strong>下降了 ' + Math.abs(scoreDiff) + ' 分</strong>，注意閱讀環境。');
+    } else {
+      trendText.push('➡️ 光線品質評分與上次<strong>持平</strong>。');
+    }
+
+    const ratDiff = Math.round((curr.goodRatio - prev.goodRatio) * 100);
+    if(ratDiff > 5){
+      trendText.push('✅ 適合閱讀的時間比例提高了 <strong>' + ratDiff + '%</strong>，做得好！');
+    } else if(ratDiff < -5){
+      trendText.push('⚠️ 適合閱讀的時間比例降低了 <strong>' + Math.abs(ratDiff) + '%</strong>，可能換了比較暗的地方。');
+    }
+
+    document.getElementById('txtTrend').innerHTML = trendText.join('<br>');
+
+    // Trend boxes
+    const trendRow = document.getElementById('trendRow');
+    trendRow.innerHTML = '';
+    function addTrend(label, prev, curr, unit, higherBetter){
+      const diff = curr - prev;
+      const arrow = diff > 0 ? (higherBetter ? '↑' : '↑') : diff < 0 ? (higherBetter ? '↓' : '↓') : '→';
+      const color = diff === 0 ? 'var(--dim)' :
+        (diff > 0 === higherBetter) ? 'var(--green)' : 'var(--red)';
+      trendRow.innerHTML += '<div class="trend-item">'
+        + '<div class="trend-arrow" style="color:'+color+'">'+arrow+'</div>'
+        + '<div class="trend-val" style="color:'+color+'">'+Math.round(curr)+unit+'</div>'
+        + '<div class="trend-lbl">'+label+'</div></div>';
+    }
+    addTrend('評分', prev.score, curr.score, '分', true);
+    addTrend('好光比', prev.goodRatio*100, curr.goodRatio*100, '%', true);
+    addTrend('均照度', prev.avgLux, curr.avgLux, 'lx', false);
+  } else {
+    document.getElementById('secTrend').style.display = 'none';
+  }
+
+  // Enable Claude AI button
+  document.getElementById('aiBtn').disabled = false;
+}
+
+// ===== Score Ring Drawing =====
+function drawScoreRing(score){
+  const c = document.getElementById('scoreCanvas');
+  const ctx = c.getContext('2d');
+  const w=c.width, cx=w/2, cy=w/2, r=75;
+  ctx.clearRect(0,0,w,w);
+  // BG ring
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.lineWidth=14;ctx.strokeStyle='rgba(55,65,81,0.4)';ctx.stroke();
+  // Score arc
+  const angle = (score/100) * Math.PI * 2;
+  const startA = -Math.PI/2;
+  const color = score>=80?'#34d399':score>=60?'#fbbf24':'#f87171';
+  ctx.beginPath();ctx.arc(cx,cy,r,startA,startA+angle);
+  ctx.lineWidth=14;ctx.strokeStyle=color;ctx.lineCap='round';ctx.stroke();
+  // Glow
+  ctx.beginPath();ctx.arc(cx,cy,r,startA,startA+angle);
+  ctx.lineWidth=18;ctx.strokeStyle=color+'33';ctx.lineCap='round';ctx.stroke();
+}
+
+// ========================================
+// CLAUDE AI DEEP ANALYSIS
+// ========================================
+async function askClaudeAI(){
+  if(!latestSession) return;
+  const btn = document.getElementById('aiBtn');
+  const load = document.getElementById('aiLoad');
+  const resp = document.getElementById('aiResp');
+
+  btn.disabled = true;
+  btn.textContent = '分析中...';
+  load.className = 'ai-loading';
+  resp.className = 'ai-response hid';
+
+  const s = latestSession;
+  const prompt = `你是「會判斷光線好壞的AI手錶」科展專案的AI助手，專門分析小學生的閱讀光線環境。
+請用繁體中文、親切口吻（適合小學五年級閱讀），根據以下數據給出個人化分析：
+
+📊 本次閱讀數據：
+- 總閱讀時間：${Math.round(s.totalS/60)} 分 ${s.totalS%60} 秒
+- 光線適合時間：${Math.round(s.goodS/60)} 分 ${s.goodS%60} 秒（佔 ${Math.round(s.goodRatio*100)}%）
+- 平均光感測值：${Math.round(s.avgL)}（範圍 0-255，190-230 為適合）
+- 平均照度：約 ${Math.round(s.avgLux)} lux（建議 500-1000 lux）
+- 平均光線評價：${s.avgState}
+- AI 評分：${s.score}/100
+${sessions.length >= 2 ? '- 上次評分：' + sessions[sessions.length-2].score + '/100' : ''}
+
+請提供：
+1. 📋 整體評語（2-3句，鼓勵為主）
+2. 💡 最重要的 1 個改善建議（具體可行）
+3. 🧪 一個有趣的科學小知識（跟光線或視力相關）
+4. 🎯 下次閱讀的小目標
+
+回覆控制在 150 字以內，用 emoji 讓內容生動有趣。`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = data.content.map(b => b.text || '').join('\n');
+    resp.textContent = text;
+    resp.className = 'ai-response';
+    log('AI 深度分析完成','lc');
+  } catch(e) {
+    resp.textContent = '⚠️ AI 分析需要網路連線。目前離線，請參考上方的規則分析結果。\n（錯誤：' + e.message + '）';
+    resp.className = 'ai-response';
+    log('AI 分析失敗: ' + e.message, 'le');
+  }
+
+  load.className = 'ai-loading hid';
+  btn.disabled = false;
+  btn.textContent = '🤖 請 AI 深度分析';
+}
+
+// ===== Chart =====
+function drawChart(){
+  const canvas=document.getElementById('chart');
+  const rect=canvas.parentElement.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||2;
+  canvas.width=(rect.width-16)*dpr;canvas.height=150*dpr;
+  canvas.style.width=(rect.width-16)+'px';canvas.style.height='150px';
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  const pL=50*dpr,pR=10*dpr,pT=10*dpr,pB=24*dpr;
+  const pw=w-pL-pR,ph=h-pT-pB;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='rgba(55,65,81,0.4)';ctx.lineWidth=1;
+  ctx.font=(10*dpr)+'px Orbitron';ctx.fillStyle='#64748b';ctx.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const y=pT+(ph/4)*i;
+    ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(w-pR,y);ctx.stroke();
+    ctx.fillText(Math.round(255-(255/4)*i),pL-6,y+4*dpr);
+  }
+  const y190=pT+ph*(1-190/255),y230=pT+ph*(1-230/255);
+  ctx.fillStyle='rgba(248,113,113,0.06)';ctx.fillRect(pL,y190,pw,pT+ph-y190);
+  ctx.fillStyle='rgba(52,211,153,0.08)';ctx.fillRect(pL,y230,pw,y190-y230);
+  ctx.fillStyle='rgba(251,191,36,0.06)';ctx.fillRect(pL,pT,pw,y230-pT);
+  [190,230].forEach(v=>{
+    const y=pT+ph*(1-v/255);
+    ctx.setLineDash([6*dpr,4*dpr]);ctx.strokeStyle=v===190?'rgba(248,113,113,0.35)':'rgba(251,191,36,0.35)';
+    ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(w-pR,y);ctx.stroke();ctx.setLineDash([]);
+  });
+  if(lightHist.length<2)return;
+  const step=pw/(MAX_PTS-1),off=MAX_PTS-lightHist.length;
+  const grad=ctx.createLinearGradient(0,pT,0,pT+ph);
+  grad.addColorStop(0,'rgba(34,211,238,0.12)');grad.addColorStop(1,'rgba(34,211,238,0)');
+  ctx.beginPath();ctx.moveTo(pL+off*step,pT+ph);
+  for(let i=0;i<lightHist.length;i++)ctx.lineTo(pL+(off+i)*step,pT+ph*(1-lightHist[i]/255));
+  ctx.lineTo(pL+(off+lightHist.length-1)*step,pT+ph);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.lineWidth=2.5*dpr;
+  for(let i=1;i<lightHist.length;i++){
+    const x0=pL+(off+i-1)*step,x1=pL+(off+i)*step;
+    const y0=pT+ph*(1-lightHist[i-1]/255),y1=pT+ph*(1-lightHist[i]/255);
+    const v=lightHist[i];ctx.strokeStyle=v<190?'#f87171':v<=230?'#34d399':'#fbbf24';
+    ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  }
+  const lx=pL+(off+lightHist.length-1)*step,ly=pT+ph*(1-lightHist[lightHist.length-1]/255);
+  const lv=lightHist[lightHist.length-1],dc=lv<190?'#f87171':lv<=230?'#34d399':'#fbbf24';
+  ctx.beginPath();ctx.arc(lx,ly,6*dpr,0,Math.PI*2);ctx.fillStyle=dc+'44';ctx.fill();
+  ctx.beginPath();ctx.arc(lx,ly,3*dpr,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill();
+}
+
+// ===== Log =====
+function log(msg,cls){
+  const box=document.getElementById('logBox');
+  const t=new Date().toLocaleTimeString('zh-TW');
+  box.innerHTML+='<div><span class="lt">['+t+']</span> <span class="'+(cls||'')+'">'+msg+'</span></div>';
+  box.scrollTop=box.scrollHeight;
+  while(box.children.length>100)box.removeChild(box.firstChild);
+}
+
+// ===== Demo =====
+function startDemo(){
+  log('展示模式啟動','lw');setC(true);document.getElementById('stxt').textContent='展示模式';
+  let t=0;
+  setInterval(()=>{
+    const base=200+Math.sin(t*.12)*55;
+    const light=Math.round(Math.max(50,Math.min(255,base+(Math.random()-.5)*25)));
+    const lux=Math.round(500+(light-190)*12.5);
+    const state=light<190?'DARK':light>230?'BRIGHT':'GOOD';
+    parseLine('LIGHT:'+light+',LUX:'+lux+',STATE:'+state);
+    if(t===6)parseLine('REC:START');
+    if(t>6&&t<18){const s=t-6;parseLine('REC:ON,T:00:'+(s<10?'0':'')+s)}
+    if(t===18)parseLine('REC_END,TOTAL:00:12,GOOD:00:09,AVG_L:205,AVG_LUX:687,AVG_STATE:GOOD');
+    if(t===28)parseLine('REC:START');
+    if(t>28&&t<38){const s=t-28;parseLine('REC:ON,T:00:'+(s<10?'0':'')+s)}
+    if(t===38)parseLine('REC_END,TOTAL:00:10,GOOD:00:04,AVG_L:170,AVG_LUX:437,AVG_STATE:DARK');
+    t++;
+  },2500);
+}
+
+// ===== Init =====
+drawChart();
+const tip=document.getElementById('tipArea');
+if(!navigator.bluetooth){
+  tip.innerHTML='⚠️ 此瀏覽器不支援 Web Bluetooth<br>iPhone 請安裝 <a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" target="_blank">Bluefy</a>（免費）再開啟本頁<br><br><button onclick="startDemo()" style="padding:8px 20px;border:1px solid var(--yellow);color:var(--yellow);background:transparent;border-radius:20px;font-size:.9em">🎮 展示模式</button>';
+}else{
+  tip.innerHTML='iPhone 需使用 <a href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" target="_blank">Bluefy</a> 瀏覽器開啟';
+}
+window.addEventListener('resize',drawChart);
+</script>
+</body>
+</html>
