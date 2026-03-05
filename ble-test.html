@@ -472,17 +472,25 @@ async function connectBLE() {
 
     let subscribed = false;
     for (const c of chars) {
-      // 檢查是否支援 notify
-      if (c.properties.notify) {
+      const uuid4 = c.uuid.slice(4, 8);
+      const props = c.properties;
+      addLog('UUID ...' + uuid4 + ' | notify=' + props.notify + ' write=' + (props.write || props.writeWithoutResponse), 'sys');
+
+      // Bluefy 有時不正確回報 properties
+      // 所以對每個 characteristic 都嘗試訂閱，失敗就跳過
+      try {
         c.addEventListener('characteristicvaluechanged', onDataReceived);
         await c.startNotifications();
-        addLog('已訂閱通知: ' + c.uuid.slice(4, 8), 'sys');
+        addLog('✓ 已訂閱: ...' + uuid4, 'sys');
         subscribed = true;
+      } catch (e) {
+        addLog('✗ ...' + uuid4 + ' 無法訂閱 (' + e.message + ')', 'sys');
       }
     }
 
     if (!subscribed) {
-      addLog('警告：沒有找到可訂閱的 characteristic', 'err');
+      addLog('全部 characteristic 都無法訂閱', 'err');
+      addLog('請確認 micro:bit 有啟用 UART Service', 'err');
     }
 
     // 成功！
