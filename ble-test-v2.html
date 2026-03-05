@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🔵 藍牙測試站</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0e27;
+    --card: #131836;
+    --blue: #4dabf7;
+    --blue-glow: rgba(77, 171, 247, 0.3);
+    --green: #51cf66;
+    --green-glow: rgba(81, 207, 102, 0.3);
+    --red: #ff6b6b;
+    --red-glow: rgba(255, 107, 107, 0.3);
+    --yellow: #ffd43b;
+    --text: #e0e6f0;
+    --text-dim: #6b7394;
+    --radius: 16px;
+  }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .header h1 {
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--blue), #a5d8ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-top: 6px;
+  }
+
+  .status-zone {
+    width: 100%;
+    max-width: 400px;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    overflow: hidden;
+  }
+  .status-zone::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle, var(--blue-glow) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.6s;
+    pointer-events: none;
+  }
+  .status-zone.connected::before {
+    background: radial-gradient(circle, var(--green-glow) 0%, transparent 60%);
+    opacity: 1;
+  }
+
+  .status-emoji {
+    font-size: 3.5rem;
+    margin-bottom: 12px;
+    display: block;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .status-text {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .status-sub {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .btn-connect {
+    width: 100%;
+    max-width: 400px;
+    padding: 16px 24px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+  }
+  .btn-connect.connect {
+    background: linear-gradient(135deg, #2b5ea7, var(--blue));
+    color: white;
+    box-shadow: 0 4px 20px var(--blue-glow);
+  }
+  .btn-connect.connect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px var(--blue-glow);
+  }
+  .btn-connect.connect:active { transform: translateY(0); }
+  .btn-connect.disconnect {
+    background: rgba(255,107,107,0.15);
+    color: var(--red);
+    border: 1px solid rgba(255,107,107,0.3);
+  }
+  .btn-connect.disconnect:hover {
+    background: rgba(255,107,107,0.25);
+  }
+  .btn-connect:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  .data-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.05);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .data-card-header {
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .data-card-header h2 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .msg-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--blue);
+    background: rgba(77,171,247,0.1);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .live-value {
+    padding: 28px 20px;
+    text-align: center;
+  }
+  .live-value .number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: var(--blue);
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  .live-value .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+  .live-value.no-data .number {
+    color: var(--text-dim);
+    font-size: 1.2rem;
+  }
+
+  .log-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.05);
+    overflow: hidden;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+  }
+  .log-card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .log-card-header h2 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .btn-clear {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-clear:hover {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .log-area {
+    padding: 12px 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+  .log-area .log-line {
+    display: flex;
+    gap: 8px;
+  }
+  .log-area .log-time {
+    color: #444b6e;
+    flex-shrink: 0;
+  }
+  .log-area .log-msg { color: var(--green); word-break: break-all; }
+  .log-area .log-sys { color: var(--yellow); }
+  .log-area .log-err { color: var(--red); }
+
+  .pulse-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--green-glow); }
+    50% { box-shadow: 0 0 0 8px transparent; }
+  }
+
+  .footer-hint {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #3a3f5c;
+    max-width: 400px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔵 藍牙測試站</h1>
+  <p>micro:bit BLE UART 連線測試</p>
+</div>
+
+<div class="status-zone" id="statusZone">
+  <span class="status-emoji" id="statusEmoji">📡</span>
+  <div class="status-text" id="statusText">尚未連線</div>
+  <div class="status-sub" id="statusSub">按下面的按鈕開始連線</div>
+</div>
+
+<button class="btn-connect connect" id="btnConnect" onclick="toggleConnection()">
+  🔗 連線 micro:bit
+</button>
+
+<div class="data-card">
+  <div class="data-card-header">
+    <h2>即時光線值</h2>
+    <span class="msg-count" id="msgCount">0 筆</span>
+  </div>
+  <div class="live-value no-data" id="liveValue">
+    <div class="number" id="liveNumber">等待資料...</div>
+    <div class="label" id="liveLabel"></div>
+  </div>
+</div>
+
+<div class="log-card">
+  <div class="log-card-header">
+    <h2>訊息記錄</h2>
+    <button class="btn-clear" onclick="clearLog()">清除</button>
+  </div>
+  <div class="log-area" id="logArea"></div>
+</div>
+
+<div class="footer-hint">
+  階段 1 — 藍牙初體驗<br>
+  用 Bluefy 瀏覽器打開此頁面
+</div>
+
+<script>
+// ===== micro:bit BLE UART UUIDs =====
+const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+
+let device = null;
+let server = null;
+let connected = false;
+let msgCount = 0;
+let rxBuffer = '';
+
+// ===== UI =====
+function setStatus(emoji, text, sub, isConnected) {
+  document.getElementById('statusEmoji').textContent = emoji;
+  document.getElementById('statusText').innerHTML = isConnected
+    ? '<span class="pulse-dot"></span>' + text : text;
+  document.getElementById('statusSub').textContent = sub;
+  document.getElementById('statusZone').classList.toggle('connected', isConnected);
+}
+
+function updateLiveValue(raw) {
+  const match = raw.match(/L:(\d+)/);
+  if (!match) return;
+  const val = parseInt(match[1]);
+  const el = document.getElementById('liveValue');
+  const num = document.getElementById('liveNumber');
+  const label = document.getElementById('liveLabel');
+  el.classList.remove('no-data');
+  num.textContent = val;
+  if (val < 190) {
+    num.style.color = '#ffd43b';
+    label.textContent = '😴 太暗了！';
+  } else if (val > 230) {
+    num.style.color = '#ff6b6b';
+    label.textContent = '😮 太亮了！';
+  } else {
+    num.style.color = '#51cf66';
+    label.textContent = '🙂 光線剛好！';
+  }
+  msgCount++;
+  document.getElementById('msgCount').textContent = msgCount + ' 筆';
+}
+
+function addLog(msg, type) {
+  const area = document.getElementById('logArea');
+  const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  const ts = document.createElement('span');
+  ts.className = 'log-time';
+  ts.textContent = time;
+  const ms = document.createElement('span');
+  ms.className = type === 'sys' ? 'log-sys' : type === 'err' ? 'log-err' : 'log-msg';
+  ms.textContent = msg;
+  line.appendChild(ts);
+  line.appendChild(ms);
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+  while (area.children.length > 100) area.removeChild(area.firstChild);
+}
+
+function clearLog() {
+  document.getElementById('logArea').innerHTML = '';
+  msgCount = 0;
+  document.getElementById('msgCount').textContent = '0 筆';
+}
+
+// ===== BLE 連線 =====
+async function toggleConnection() {
+  if (connected) { disconnect(); }
+  else { await connectBLE(); }
+}
+
+async function connectBLE() {
+  const btn = document.getElementById('btnConnect');
+  btn.disabled = true;
+  btn.textContent = '⏳ 搜尋中...';
+
+  try {
+    setStatus('🔍', '搜尋中...', '請在彈出視窗選擇你的 micro:bit', false);
+    addLog('開始搜尋 micro:bit...', 'sys');
+
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [UART_SERVICE]
+    });
+
+    addLog('找到: ' + device.name, 'sys');
+    setStatus('🤝', '連線中...', '正在建立連線...', false);
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    server = await device.gatt.connect();
+    addLog('GATT 已連線', 'sys');
+
+    const service = await server.getPrimaryService(UART_SERVICE);
+    addLog('UART Service 已取得', 'sys');
+
+    // === Bluefy 關鍵修正 ===
+    // 1. 用 getCharacteristics() 而非 getCharacteristic(uuid)
+    // 2. 不檢查 properties.notify（Bluefy 回報不準）
+    // 3. 對每個 characteristic 都嘗試訂閱，失敗就跳過
+    const chars = await service.getCharacteristics();
+    addLog('找到 ' + chars.length + ' 個 characteristic', 'sys');
+
+    let subscribed = false;
+    for (const c of chars) {
+      const uuid4 = c.uuid.slice(4, 8);
+
+      // 列出 Bluefy 回報的 properties（僅供診斷）
+      const p = c.properties;
+      addLog('  ...' + uuid4 + ' notify=' + p.notify
+        + ' read=' + p.read
+        + ' write=' + p.write
+        + ' writeNoResp=' + p.writeWithoutResponse, 'sys');
+
+      // 不管 properties 說什麼，全部嘗試訂閱！
+      try {
+        c.addEventListener('characteristicvaluechanged', onDataReceived);
+        await c.startNotifications();
+        addLog('  ✓ 已訂閱 ...' + uuid4, 'sys');
+        subscribed = true;
+      } catch (e) {
+        addLog('  ✗ ...' + uuid4 + ' 跳過 (' + e.message + ')', 'sys');
+      }
+    }
+
+    if (!subscribed) {
+      addLog('全部都無法訂閱！', 'err');
+      addLog('可能原因：', 'err');
+      addLog('1. micro:bit 未啟用 UART Service', 'err');
+      addLog('2. pxt.json 缺少 "open":1 設定', 'err');
+      addLog('3. iPhone 有殘留的舊配對資料', 'err');
+      addLog('→ 試試：iPhone 設定 > 藍牙 > 忽略 micro:bit', 'err');
+    }
+
+    connected = true;
+    setStatus('✅', '已連線', device.name, true);
+    addLog('🎉 連線成功！等待資料...', 'sys');
+
+    btn.textContent = '🔌 斷線';
+    btn.className = 'btn-connect disconnect';
+    btn.disabled = false;
+
+  } catch (err) {
+    addLog('連線失敗: ' + err.message, 'err');
+    setStatus('❌', '連線失敗', err.message, false);
+    btn.textContent = '🔗 連線 micro:bit';
+    btn.className = 'btn-connect connect';
+    btn.disabled = false;
+  }
+}
+
+function disconnect() {
+  if (device && device.gatt.connected) device.gatt.disconnect();
+  onDisconnected();
+}
+
+function onDisconnected() {
+  connected = false;
+  rxBuffer = '';
+  setStatus('📡', '已斷線', '按下面的按鈕重新連線', false);
+  addLog('已斷線', 'sys');
+  const btn = document.getElementById('btnConnect');
+  btn.textContent = '🔗 連線 micro:bit';
+  btn.className = 'btn-connect connect';
+  btn.disabled = false;
+}
+
+// ===== 資料接收 =====
+function onDataReceived(event) {
+  const value = event.target.value;
+  const decoder = new TextDecoder('utf-8');
+  const text = decoder.decode(value);
+
+  rxBuffer += text;
+  const lines = rxBuffer.split('\n');
+  rxBuffer = lines.pop(); // 最後一段可能不完整
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+    addLog(trimmed, 'data');
+    updateLiveValue(trimmed);
+  }
+}
+
+// ===== 初始化 =====
+window.addEventListener('load', () => {
+  if (!navigator.bluetooth) {
+    setStatus('⚠️', '不支援 Web Bluetooth',
+      '請用 Bluefy 瀏覽器 (iOS) 或 Chrome (Android)', false);
+    document.getElementById('btnConnect').disabled = true;
+    addLog('此瀏覽器不支援 Web Bluetooth API', 'err');
+  } else {
+    addLog('Web Bluetooth API 可用 ✓', 'sys');
+    addLog('準備就緒，按「連線」開始！', 'sys');
+  }
+});
+</script>
+</body>
+</html>
