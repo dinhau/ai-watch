@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AI LIGHT WATCH // HUD</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --cyan:#00f0ff;
+    --cyan2:#0af;
+    --cyan-dim:rgba(0,240,255,0.08);
+    --cyan-glow:rgba(0,240,255,0.35);
+    --green:#0f6;
+    --green-dim:rgba(0,255,102,0.1);
+    --yellow:#fc0;
+    --yellow-dim:rgba(255,204,0,0.1);
+    --red:#f44;
+    --red-dim:rgba(255,68,68,0.1);
+    --bg:#020810;
+    --panel:rgba(5,18,38,0.85);
+    --border:rgba(0,240,255,0.12);
+    --text:#c8e6ff;
+    --text-dim:#2e5070;
+    --scanline:rgba(0,240,255,0.03);
+  }
+
+  body{
+    font-family:'Rajdhani','Noto Sans TC',sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;min-height:100dvh;
+    padding:16px 12px 32px;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ===== 動態背景 ===== */
+  body::before{
+    content:'';position:fixed;inset:0;z-index:-2;
+    background:
+      radial-gradient(ellipse at 50% 0%,rgba(0,100,180,0.12) 0%,transparent 60%),
+      radial-gradient(ellipse at 80% 100%,rgba(0,240,255,0.05) 0%,transparent 40%),
+      var(--bg);
+  }
+
+  /* 掃描線效果 */
+  body::after{
+    content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+    background:repeating-linear-gradient(
+      0deg,transparent,transparent 2px,var(--scanline) 2px,var(--scanline) 4px
+    );
+  }
+
+  /* 網格背景 */
+  .grid-bg{
+    position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.03) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,240,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px;
+    animation:gridScroll 20s linear infinite;
+  }
+  @keyframes gridScroll{
+    0%{transform:translateY(0)}
+    100%{transform:translateY(40px)}
+  }
+
+  /* ===== 頂部 HUD ===== */
+  .hud-top{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 4px 16px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+    position:relative;
+  }
+  .hud-top::after{
+    content:'';position:absolute;bottom:-1px;left:0;width:60px;height:1px;
+    background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+    animation:topLine 3s ease-in-out infinite;
+  }
+  @keyframes topLine{
+    0%,100%{left:0;width:60px}
+    50%{left:calc(100% - 60px);width:60px}
+  }
+
+  .hud-title{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.75rem;
+    letter-spacing:3px;
+    color:var(--cyan);
+    text-transform:uppercase;
+    text-shadow:0 0 10px var(--cyan-glow);
+  }
+  .hud-title span{
+    color:var(--text-dim);
+    font-size:0.6rem;
+    letter-spacing:1px;
+    margin-left:8px;
+  }
+
+  .ble-chip{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.6rem;
+    padding:4px 10px;
+    border:1px solid var(--border);
+    letter-spacing:1px;
+    position:relative;
+    overflow:hidden;
+    transition:all 0.5s;
+  }
+  .ble-chip.off{color:var(--text-dim);background:transparent}
+  .ble-chip.on{
+    color:var(--cyan);border-color:var(--cyan);
+    box-shadow:0 0 12px rgba(0,240,255,0.15),inset 0 0 12px rgba(0,240,255,0.05);
+  }
+  .ble-chip.on::before{
+    content:'';position:absolute;top:0;left:-100%;
+    width:100%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(0,240,255,0.15),transparent);
+    animation:chipSweep 2s linear infinite;
+  }
+  @keyframes chipSweep{0%{left:-100%}100%{left:100%}}
+
+  /* ===== 主儀表盤 ===== */
+  .gauge-section{
+    display:flex;justify-content:center;
+    margin-bottom:12px;
+    position:relative;
+  }
+
+  .gauge-container{
+    position:relative;width:240px;height:240px;
+  }
+
+  /* 外圈裝飾環 */
+  .gauge-outer-ring{
+    position:absolute;inset:-12px;
+    border:1px solid rgba(0,240,255,0.08);
+    border-radius:50%;
+    animation:outerSpin 30s linear infinite;
+  }
+  .gauge-outer-ring::before,.gauge-outer-ring::after{
+    content:'';position:absolute;width:6px;height:6px;
+    background:var(--cyan);border-radius:50%;
+    box-shadow:0 0 6px var(--cyan);
+  }
+  .gauge-outer-ring::before{top:-3px;left:50%;transform:translateX(-50%)}
+  .gauge-outer-ring::after{bottom:-3px;left:50%;transform:translateX(-50%)}
+  @keyframes outerSpin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+
+  /* 刻度環 */
+  .gauge-ticks{position:absolute;inset:0}
+  .gauge-ticks svg{width:100%;height:100%}
+
+  /* 主弧 */
+  .gauge-arc{position:absolute;inset:8px}
+  .gauge-arc svg{width:100%;height:100%;transform:rotate(-126deg)}
+  .arc-bg{
+    fill:none;stroke:rgba(0,240,255,0.06);stroke-width:8;
+    stroke-dasharray:4 6;stroke-linecap:round;
+  }
+  .arc-fill{
+    fill:none;stroke:var(--cyan);stroke-width:8;
+    stroke-linecap:round;filter:drop-shadow(0 0 8px currentColor);
+    stroke-dasharray:0 999;
+    transition:stroke-dasharray 0.8s cubic-bezier(0.22,1,0.36,1),stroke 0.5s;
+  }
+
+  /* 中心資訊 */
+  .gauge-center{
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;width:140px;
+  }
+  .gauge-value{
+    font-family:'Share Tech Mono',monospace;
+    font-size:3rem;font-weight:400;line-height:1;
+    color:var(--cyan);
+    text-shadow:0 0 20px var(--cyan-glow),0 0 40px rgba(0,240,255,0.15);
+    transition:color 0.5s;
+  }
+  .gauge-label{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.55rem;color:var(--text-dim);
+    letter-spacing:3px;margin-top:6px;
+    text-transform:uppercase;
+  }
+  .gauge-emoji{
+    font-size:1.6rem;margin-top:2px;display:block;
+    filter:drop-shadow(0 0 8px rgba(255,255,255,0.3));
+    animation:emojiFloat 4s ease-in-out infinite;
+  }
+  @keyframes emojiFloat{
+    0%,100%{transform:translateY(0) scale(1)}
+    50%{transform:translateY(-3px) scale(1.05)}
+  }
+
+  /* 儀表盤下方狀態列 */
+  .gauge-readout{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.65rem;
+    text-align:center;
+    color:var(--text-dim);
+    letter-spacing:2px;
+    padding:4px 0 8px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:14px;
+  }
+  .gauge-readout .lux-val{color:var(--cyan);margin:0 4px}
+
+  /* ===== 狀態橫幅 ===== */
+  .status-banner{
+    text-align:center;
+    margin-bottom:16px;
+  }
+  .status-pill{
+    display:inline-block;
+    font-family:'Rajdhani','Noto Sans TC',sans-serif;
+    font-size:0.85rem;font-weight:700;
+    padding:6px 20px;
+    border:1px solid;
+    position:relative;
+    overflow:hidden;
+    letter-spacing:1px;
+    transition:all 0.5s;
+  }
+  .status-pill::before{
+    content:'';position:absolute;inset:0;opacity:0;
+    transition:opacity 0.5s;
+  }
+  .status-pill.good{
+    color:var(--green);border-color:rgba(0,255,102,0.3);
+    background:var(--green-dim);
+  }
+  .status-pill.dark{
+    color:var(--yellow);border-color:rgba(255,204,0,0.3);
+    background:var(--yellow-dim);
+  }
+  .status-pill.bright{
+    color:var(--red);border-color:rgba(255,68,68,0.3);
+    background:var(--red-dim);
+  }
+  .status-pill.off{
+    color:var(--text-dim);border-color:var(--border);
+    background:transparent;
+  }
+
+  /* ===== 數據面板 ===== */
+  .data-panels{
+    display:grid;grid-template-columns:1fr 1fr 1fr;
+    gap:8px;margin-bottom:14px;
+  }
+  .d-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    padding:12px 6px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  /* 角落裝飾 */
+  .d-panel::before,.d-panel::after{
+    content:'';position:absolute;width:8px;height:8px;
+    border-color:var(--cyan);border-style:solid;
+    opacity:0.3;
+  }
+  .d-panel::before{top:2px;left:2px;border-width:1px 0 0 1px}
+  .d-panel::after{bottom:2px;right:2px;border-width:0 1px 1px 0}
+
+  .d-panel .dp-label{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.5rem;color:var(--text-dim);
+    letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .d-panel .dp-value{
+    font-family:'Share Tech Mono',monospace;
+    font-size:1.2rem;color:var(--text);
+    line-height:1;
+  }
+  .d-panel .dp-unit{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.5rem;color:var(--text-dim);
+    margin-top:3px;letter-spacing:1px;
+  }
+
+  /* ===== 錄影面板 ===== */
+  .rec-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    padding:14px 16px;
+    margin-bottom:14px;
+    display:flex;align-items:center;gap:14px;
+    position:relative;
+    transition:border-color 0.5s;
+  }
+  .rec-panel.active{border-color:rgba(255,68,68,0.4)}
+  .rec-panel.active::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg,rgba(255,68,68,0.03),transparent 50%);
+    pointer-events:none;
+  }
+
+  .rec-indicator{
+    width:16px;height:16px;
+    position:relative;flex-shrink:0;
+  }
+  .rec-indicator .rec-dot{
+    width:10px;height:10px;
+    border-radius:50%;
+    background:#333;
+    position:absolute;top:3px;left:3px;
+    transition:all 0.3s;
+  }
+  .rec-indicator .rec-ring{
+    position:absolute;inset:0;
+    border:1px solid transparent;
+    border-radius:50%;
+    transition:all 0.3s;
+  }
+  .rec-panel.active .rec-dot{
+    background:var(--red);
+    box-shadow:0 0 10px var(--red),0 0 20px rgba(255,68,68,0.3);
+    animation:recPulse 1s ease-in-out infinite;
+  }
+  .rec-panel.active .rec-ring{
+    border-color:rgba(255,68,68,0.3);
+    animation:recRing 2s linear infinite;
+  }
+  @keyframes recPulse{0%,100%{opacity:1}50%{opacity:0.2}}
+  @keyframes recRing{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+
+  .rec-info{flex-grow:1}
+  .rec-info .ri-label{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.55rem;color:var(--text-dim);
+    letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:2px;
+  }
+  .rec-info .ri-time{
+    font-family:'Share Tech Mono',monospace;
+    font-size:1.4rem;color:var(--text);
+    letter-spacing:2px;
+  }
+
+  /* ===== 結果面板 ===== */
+  .result-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    margin-bottom:14px;
+    display:none;
+    position:relative;
+    overflow:hidden;
+  }
+  .result-panel.show{display:block;animation:resultIn 0.6s ease-out}
+  @keyframes resultIn{
+    0%{opacity:0;transform:translateY(10px)}
+    100%{opacity:1;transform:translateY(0)}
+  }
+
+  .result-panel::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  }
+
+  .rp-header{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.55rem;color:var(--text-dim);
+    letter-spacing:3px;text-transform:uppercase;
+    padding:12px 16px 8px;
+    border-bottom:1px solid var(--border);
+  }
+  .rp-body{
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:0;
+  }
+  .rp-item{
+    padding:12px 16px;
+    border-bottom:1px solid rgba(0,240,255,0.04);
+  }
+  .rp-item:nth-child(odd){border-right:1px solid rgba(0,240,255,0.04)}
+  .rp-item .rpi-label{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.5rem;color:var(--text-dim);
+    letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;
+  }
+  .rp-item .rpi-value{
+    font-family:'Share Tech Mono',monospace;
+    font-size:1rem;
+  }
+
+  /* ===== 趨勢圖 ===== */
+  .chart-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    padding:14px;
+    margin-bottom:16px;
+    position:relative;
+  }
+  .chart-panel::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+    opacity:0.5;
+  }
+  .cp-header{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:10px;
+  }
+  .cp-title{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.55rem;color:var(--text-dim);
+    letter-spacing:3px;text-transform:uppercase;
+  }
+  .cp-live{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.5rem;color:var(--cyan);letter-spacing:1px;
+    animation:liveBlink 2s step-end infinite;
+  }
+  @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+  .chart-wrap{
+    width:100%;height:90px;position:relative;
+  }
+  .chart-wrap canvas{width:100%;height:100%}
+  .chart-footer{
+    display:flex;justify-content:space-between;
+    margin-top:4px;
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.5rem;color:var(--text-dim);
+    letter-spacing:1px;
+  }
+
+  /* ===== 連線按鈕 ===== */
+  .btn-connect{
+    width:100%;
+    padding:14px;
+    font-family:'Rajdhani','Noto Sans TC',sans-serif;
+    font-size:1rem;font-weight:700;
+    letter-spacing:2px;
+    border:1px solid;
+    cursor:pointer;
+    position:relative;
+    overflow:hidden;
+    transition:all 0.4s;
+    text-transform:uppercase;
+  }
+  .btn-connect.connect{
+    background:rgba(0,240,255,0.05);
+    color:var(--cyan);
+    border-color:rgba(0,240,255,0.3);
+  }
+  .btn-connect.connect::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(0,240,255,0.08),transparent);
+    animation:btnSweep 3s linear infinite;
+  }
+  @keyframes btnSweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+  .btn-connect.connect:active{
+    background:rgba(0,240,255,0.15);
+    box-shadow:0 0 20px rgba(0,240,255,0.2);
+  }
+  .btn-connect.disconnect{
+    background:rgba(255,68,68,0.05);
+    color:var(--red);
+    border-color:rgba(255,68,68,0.2);
+  }
+  .btn-connect:disabled{opacity:0.4;cursor:not-allowed}
+
+  /* ===== Dashboard dim ===== */
+  .dashboard{transition:opacity 0.5s}
+  .dashboard.dimmed{opacity:0.2}
+
+  /* ===== 底部系統資訊 ===== */
+  .sys-footer{
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.5rem;
+    color:var(--text-dim);
+    text-align:center;
+    letter-spacing:2px;
+    margin-top:16px;
+    padding-top:12px;
+    border-top:1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- HUD 頂部 -->
+<div class="hud-top">
+  <div class="hud-title">AI LIGHT WATCH <span>// HUD v2.0</span></div>
+  <div class="ble-chip off" id="bleBadge">OFFLINE</div>
+</div>
+
+<div class="dashboard dimmed" id="dashboard">
+
+  <!-- 主儀表盤 -->
+  <div class="gauge-section">
+    <div class="gauge-container">
+      <div class="gauge-outer-ring"></div>
+
+      <!-- 刻度 -->
+      <div class="gauge-ticks">
+        <svg viewBox="0 0 240 240">
+          <g transform="translate(120,120)">
+            <script type="text/javascript">/* ticks rendered by JS below */</script>
+          </g>
+        </svg>
+      </div>
+
+      <!-- 主弧線 -->
+      <div class="gauge-arc">
+        <svg viewBox="0 0 224 224">
+          <circle class="arc-bg" cx="112" cy="112" r="100"/>
+          <circle class="arc-fill" id="arcFill" cx="112" cy="112" r="100"/>
+        </svg>
+      </div>
+
+      <!-- 中心 -->
+      <div class="gauge-center">
+        <div class="gauge-value" id="gaugeValue">---</div>
+        <div class="gauge-label">light level</div>
+        <span class="gauge-emoji" id="gaugeEmoji">💤</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lux 讀數列 -->
+  <div class="gauge-readout" id="readoutBar">
+    SYS IDLE // LUX <span class="lux-val" id="readoutLux">---</span> // SENSOR ACTIVE
+  </div>
+
+  <!-- 狀態 -->
+  <div class="status-banner">
+    <div class="status-pill off" id="statusPill">STANDBY</div>
+  </div>
+
+  <!-- 三面板 -->
+  <div class="data-panels">
+    <div class="d-panel">
+      <div class="dp-label">照度</div>
+      <div class="dp-value" id="luxValue">--</div>
+      <div class="dp-unit">LUX</div>
+    </div>
+    <div class="d-panel">
+      <div class="dp-label">光值</div>
+      <div class="dp-value" id="rawValue">--</div>
+      <div class="dp-unit">/ 255</div>
+    </div>
+    <div class="d-panel">
+      <div class="dp-label">狀態</div>
+      <div class="dp-value" id="stateText">--</div>
+      <div class="dp-unit" id="stateDesc">&nbsp;</div>
+    </div>
+  </div>
+
+  <!-- 錄影面板 -->
+  <div class="rec-panel" id="recCard">
+    <div class="rec-indicator">
+      <div class="rec-ring"></div>
+      <div class="rec-dot"></div>
+    </div>
+    <div class="rec-info">
+      <div class="ri-label" id="recLabel">REC // STANDBY</div>
+      <div class="ri-time" id="recTime">00:00</div>
+    </div>
+  </div>
+
+  <!-- 閱讀結果 -->
+  <div class="result-panel" id="resultCard">
+    <div class="rp-header">📊 Session Report</div>
+    <div class="rp-body">
+      <div class="rp-item">
+        <div class="rpi-label">Total Time</div>
+        <div class="rpi-value" id="rTotal">--</div>
+      </div>
+      <div class="rp-item">
+        <div class="rpi-label">Good Light</div>
+        <div class="rpi-value" style="color:var(--green)" id="rGood">--</div>
+      </div>
+      <div class="rp-item">
+        <div class="rpi-label">Avg Lux</div>
+        <div class="rpi-value" id="rLux">--</div>
+      </div>
+      <div class="rp-item">
+        <div class="rpi-label">Avg State</div>
+        <div class="rpi-value" id="rState">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 趨勢圖 -->
+  <div class="chart-panel">
+    <div class="cp-header">
+      <div class="cp-title">Light Waveform // 60s</div>
+      <div class="cp-live" id="chartLive">● LIVE</div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+    <div class="chart-footer">
+      <span>-60s</span>
+      <span>NOW</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- 連線按鈕 -->
+<button class="btn-connect connect" id="btnBle" onclick="toggleBLE()">
+  ◈ Connect Micro:bit
+</button>
+
+<div class="sys-footer">
+  SYS // AI LIGHT WATCH // BLE UART // <span id="sysTime">00:00:00</span>
+</div>
+
+<script>
+// ============================================
+// BLE UART
+// ============================================
+const UART_SERVICE='6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+let device=null,connected=false,rxBuffer='';
+
+let currentLight=0,currentLux=0,currentState=0;
+
+// 手機自己判斷光線狀態（不只依賴 micro:bit 送的數字）
+const THRESH_LOW=190;
+const THRESH_HIGH=230;
+function judgeState(light){
+  if(light<THRESH_LOW) return -1;
+  if(light>THRESH_HIGH) return 1;
+  return 0;
+}
+let isRecording=false;
+const MAX_CHART=60;
+let chartData=[];
+
+// 系統時鐘
+setInterval(()=>{
+  const d=new Date();
+  document.getElementById('sysTime').textContent=
+    d.toLocaleTimeString('en-GB',{hour12:false});
+},1000);
+
+// ============================================
+// BLE
+// ============================================
+async function toggleBLE(){
+  if(connected){
+    if(device&&device.gatt.connected)device.gatt.disconnect();
+    onDisconnected();
+  }else{await connectBLE()}
+}
+
+async function connectBLE(){
+  const btn=document.getElementById('btnBle');
+  btn.disabled=true;btn.textContent='◈ SCANNING...';
+  try{
+    device=await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'BBC micro:bit'}],
+      optionalServices:[UART_SERVICE]
+    });
+    device.addEventListener('gattserverdisconnected',onDisconnected);
+    const server=await device.gatt.connect();
+    const service=await server.getPrimaryService(UART_SERVICE);
+    const chars=await service.getCharacteristics();
+    for(const c of chars){
+      try{
+        c.addEventListener('characteristicvaluechanged',onData);
+        await c.startNotifications();
+      }catch(e){}
+    }
+    connected=true;
+    const badge=document.getElementById('bleBadge');
+    badge.className='ble-chip on';badge.textContent='LINKED';
+    document.getElementById('dashboard').classList.remove('dimmed');
+    document.getElementById('chartLive').style.display='';
+    btn.textContent='◈ DISCONNECT';
+    btn.className='btn-connect disconnect';
+    btn.disabled=false;
+  }catch(err){
+    btn.textContent='◈ Connect Micro:bit';
+    btn.className='btn-connect connect';
+    btn.disabled=false;
+  }
+}
+
+function onDisconnected(){
+  connected=false;rxBuffer='';
+  const badge=document.getElementById('bleBadge');
+  badge.className='ble-chip off';badge.textContent='OFFLINE';
+  document.getElementById('dashboard').classList.add('dimmed');
+  const btn=document.getElementById('btnBle');
+  btn.textContent='◈ Connect Micro:bit';
+  btn.className='btn-connect connect';
+  btn.disabled=false;
+}
+
+function onData(event){
+  const text=new TextDecoder().decode(event.target.value);
+  rxBuffer+=text;
+  const lines=rxBuffer.split('\n');
+  rxBuffer=lines.pop();
+  for(const line of lines){
+    const msg=line.trim();
+    if(msg)parseMessage(msg);
+  }
+}
+
+// ============================================
+// 解析訊息（功能完全相同）
+// ============================================
+function parseMessage(msg){
+  if(msg.startsWith('D:')){
+    const p=msg.substring(2).split(',');
+    if(p.length>=3){
+      currentLight=parseInt(p[0]);
+      currentLux=parseInt(p[1]);
+      // 手機自己判斷狀態（比依賴 micro:bit 更可靠）
+      currentState=judgeState(currentLight);
+      updateGauge();updateStats();addChartPoint(currentLight);
+      if(p.length>=5){
+        let recFlag=parseInt(p[3]);
+        let elapsedS=parseInt(p[4]);
+        if(recFlag===1&&!isRecording){
+          isRecording=true;
+          document.getElementById('recCard').classList.add('active');
+          document.getElementById('recLabel').textContent='REC // RECORDING';
+        }else if(recFlag===0&&isRecording){
+          isRecording=false;
+          document.getElementById('recCard').classList.remove('active');
+          document.getElementById('recLabel').textContent='REC // STOPPED';
+        }
+        if(recFlag===1){
+          document.getElementById('recTime').textContent=formatTime(elapsedS);
+        }
+      }
+    }
+  }
+  else if(msg==='REC:1'){
+    isRecording=true;
+    document.getElementById('recCard').classList.add('active');
+    document.getElementById('recLabel').textContent='REC // RECORDING';
+    document.getElementById('recTime').textContent='00:00';
+  }
+  else if(msg==='REC:0'){
+    isRecording=false;
+    document.getElementById('recCard').classList.remove('active');
+    document.getElementById('recLabel').textContent='REC // STOPPED';
+  }
+  else if(msg.startsWith('R:')){
+    const p=msg.substring(2).split(',');
+    if(p.length>=5){
+      showResult(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]),parseInt(p[3]),parseInt(p[4]));
+    }
+  }
+  else if(msg.startsWith('T:')){
+    document.getElementById('recTime').textContent=msg.substring(2);
+  }
+}
+
+// ============================================
+// 儀表盤
+// ============================================
+function updateGauge(){
+  const fill=document.getElementById('arcFill');
+  const val=document.getElementById('gaugeValue');
+  const emoji=document.getElementById('gaugeEmoji');
+  const readout=document.getElementById('readoutLux');
+
+  // 252度弧
+  const pct=Math.min(currentLight/255,1);
+  const totalArc=2*Math.PI*100*0.7; // 252deg
+  const filled=totalArc*pct;
+  fill.style.strokeDasharray=filled+' '+999;
+
+  val.textContent=currentLight;
+  readout.textContent=currentLux;
+
+  const colors={'-1':['var(--yellow)','😴'],'0':['var(--green)','😊'],'1':['var(--red)','😮']};
+  const c=colors[currentState]||colors['0'];
+  fill.style.stroke=c[0];
+  val.style.color=c[0];
+  val.style.textShadow='0 0 20px '+c[0]+',0 0 40px '+c[0].replace(')',',0.15)').replace('var(','rgba(');
+  emoji.textContent=c[1];
+
+  document.getElementById('readoutBar').innerHTML=
+    (isRecording?'◉ REC':'SYS ACTIVE')+
+    ' // LUX <span class="lux-val">'+currentLux+'</span> // SENSOR OK';
+}
+
+function updateStats(){
+  document.getElementById('luxValue').textContent=currentLux;
+  document.getElementById('rawValue').textContent=currentLight;
+
+  const st=document.getElementById('stateText');
+  const sd=document.getElementById('stateDesc');
+  const pill=document.getElementById('statusPill');
+
+  if(currentState===-1){
+    st.textContent='暗';st.style.color='var(--yellow)';
+    sd.textContent='< 500 lx';
+    pill.textContent='⚠ 光線不足，再亮一點';
+    pill.className='status-pill dark';
+  }else if(currentState===0){
+    st.textContent='適合';st.style.color='var(--green)';
+    sd.textContent='500-1000';
+    pill.textContent='✓ 光線適合閱讀';
+    pill.className='status-pill good';
+  }else{
+    st.textContent='亮';st.style.color='var(--red)';
+    sd.textContent='> 1000';
+    pill.textContent='⚠ 光線太強，注意眼睛';
+    pill.className='status-pill bright';
+  }
+}
+
+function showResult(totalS,goodS,avgL,avgLux,avgSt){
+  const card=document.getElementById('resultCard');
+  card.classList.add('show');
+  document.getElementById('rTotal').textContent=formatTime(totalS);
+  document.getElementById('rGood').textContent=formatTime(goodS);
+  document.getElementById('rLux').textContent=avgLux+' lx';
+  const rs=document.getElementById('rState');
+  // 用平均光值自己判斷（更可靠）
+  let st=judgeState(avgL);
+  if(st===-1){rs.textContent='😴 偏暗';rs.style.color='var(--yellow)'}
+  else if(st===0){rs.textContent='😊 良好';rs.style.color='var(--green)'}
+  else{rs.textContent='😮 偏亮';rs.style.color='var(--red)'}
+}
+
+function formatTime(s){
+  const m=Math.floor(s/60),sec=s%60;
+  return(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
+}
+
+// ============================================
+// 趨勢圖
+// ============================================
+function addChartPoint(v){
+  chartData.push(v);
+  if(chartData.length>MAX_CHART)chartData.shift();
+  drawChart();
+}
+
+function drawChart(){
+  const canvas=document.getElementById('chartCanvas');
+  const ctx=canvas.getContext('2d');
+  const rect=canvas.parentElement.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=rect.width*dpr;canvas.height=rect.height*dpr;
+  ctx.scale(dpr,dpr);
+  const w=rect.width,h=rect.height;
+  ctx.clearRect(0,0,w,h);
+
+  if(chartData.length<2)return;
+
+  // 適合範圍底色
+  const yLow=h-(190/255)*h,yHigh=h-(230/255)*h;
+  ctx.fillStyle='rgba(0,255,102,0.04)';
+  ctx.fillRect(0,yHigh,w,yLow-yHigh);
+
+  // 參考線
+  ctx.strokeStyle='rgba(0,240,255,0.06)';
+  ctx.lineWidth=1;ctx.setLineDash([3,6]);
+  ctx.beginPath();
+  ctx.moveTo(0,yLow);ctx.lineTo(w,yLow);
+  ctx.moveTo(0,yHigh);ctx.lineTo(w,yHigh);
+  ctx.stroke();ctx.setLineDash([]);
+
+  // 數據線
+  const step=w/(MAX_CHART-1);
+  const startIdx=MAX_CHART-chartData.length;
+
+  ctx.beginPath();
+  for(let i=0;i<chartData.length;i++){
+    const x=(startIdx+i)*step;
+    const y=h-(chartData[i]/255)*h;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle='var(--cyan)';
+  ctx.lineWidth=1.5;
+  ctx.shadowColor='rgba(0,240,255,0.5)';
+  ctx.shadowBlur=6;
+  ctx.stroke();
+  ctx.shadowBlur=0;
+
+  // 漸層填充
+  const lastX=(startIdx+chartData.length-1)*step;
+  const firstX=startIdx*step;
+  const grad=ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(0,240,255,0.12)');
+  grad.addColorStop(1,'rgba(0,240,255,0)');
+  ctx.lineTo(lastX,h);ctx.lineTo(firstX,h);
+  ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+
+  // 最新點亮點
+  if(chartData.length>0){
+    const lx=(startIdx+chartData.length-1)*step;
+    const ly=h-(chartData[chartData.length-1]/255)*h;
+    ctx.beginPath();ctx.arc(lx,ly,3,0,Math.PI*2);
+    ctx.fillStyle='var(--cyan)';ctx.fill();
+    ctx.beginPath();ctx.arc(lx,ly,6,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,240,255,0.2)';ctx.fill();
+  }
+}
+window.addEventListener('resize',drawChart);
+
+// ============================================
+// 初始化：畫刻度
+// ============================================
+(function drawTicks(){
+  const svg=document.querySelector('.gauge-ticks svg g');
+  if(!svg)return;
+  let html='';
+  for(let i=0;i<36;i++){
+    const angle=i*10;
+    const len=i%3===0?10:5;
+    const op=i%3===0?0.3:0.1;
+    const r1=114,r2=r1-len;
+    const rad=angle*Math.PI/180;
+    const x1=r1*Math.cos(rad),y1=r1*Math.sin(rad);
+    const x2=r2*Math.cos(rad),y2=r2*Math.sin(rad);
+    html+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--cyan)" stroke-width="1" opacity="${op}"/>`;
+  }
+  svg.innerHTML=html;
+})();
+
+// 初始 Web Bluetooth 檢查
+window.addEventListener('load',()=>{
+  if(!navigator.bluetooth){
+    document.getElementById('btnBle').disabled=true;
+    document.getElementById('btnBle').textContent='◈ WEB BLUETOOTH NOT AVAILABLE';
+  }
+});
+</script>
+</body>
+</html>
