@@ -608,7 +608,16 @@
     <div class="chart-footer">
       <span>-60s</span>
       <span>NOW</span>
+
     </div>
+  </div>
+
+  <!-- 除錯面板（找到問題後可以刪掉） -->
+  <div class="chart-panel" id="debugPanel">
+    <div class="cp-header">
+      <div class="cp-title">🔧 DEBUG LOG</div>
+    </div>
+    <div id="debugLog" style="padding:10px;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:#0af;max-height:150px;overflow-y:auto;line-height:1.8;word-break:break-all"></div>
   </div>
 
 </div>
@@ -718,14 +727,32 @@ function onData(event){
 // ============================================
 // 解析訊息（功能完全相同）
 // ============================================
+// 除錯用
+function debugLog(msg){
+  const el=document.getElementById('debugLog');
+  if(!el)return;
+  const t=new Date().toLocaleTimeString('en-GB',{hour12:false});
+  el.innerHTML='<div style="border-bottom:1px solid rgba(0,240,255,0.1);padding:2px 0"><span style="color:#456">'+t+'</span> '+msg+'</div>'+el.innerHTML;
+  // 最多 30 行
+  while(el.children.length>30)el.removeChild(el.lastChild);
+}
+
 function parseMessage(msg){
   if(msg.startsWith('D:')){
     const p=msg.substring(2).split(',');
     if(p.length>=3){
       currentLight=parseInt(p[0]);
       currentLux=parseInt(p[1]);
-      // 手機自己判斷狀態（比依賴 micro:bit 更可靠）
+      // 手機自己判斷狀態
       currentState=judgeState(currentLight);
+
+      // 除錯：顯示收到的原始資料和判斷結果
+      debugLog('RAW: "'+msg+'" → light=<span style="color:#fff">'+currentLight+'</span>'
+        +' typeof='+typeof currentLight
+        +' state=<span style="color:'+(currentState===-1?'#fc0':currentState===1?'#f44':'#0f6')
+        +'">'+currentState+'</span>'
+        +' (judge: '+currentLight+'<'+THRESH_LOW+'? '+(currentLight<THRESH_LOW)+')');
+
       updateGauge();updateStats();addChartPoint(currentLight);
       if(p.length>=5){
         let recFlag=parseInt(p[3]);
@@ -776,7 +803,6 @@ function updateGauge(){
   const emoji=document.getElementById('gaugeEmoji');
   const readout=document.getElementById('readoutLux');
 
-  // 252度弧
   const pct=Math.min(currentLight/255,1);
   const totalArc=2*Math.PI*100*0.7;
   const filled=totalArc*pct;
@@ -785,15 +811,17 @@ function updateGauge(){
   val.textContent=currentLight;
   readout.textContent=currentLux;
 
-  // 用真正的顏色代碼（不用 var()，Bluefy 才能正常顯示）
+  // 直接比較數字，最單純不會出錯
   let color,glowColor,face;
-  if(currentState===-1){
+  if(currentLight<190){
     color='#ffcc00';glowColor='rgba(255,204,0,0.35)';face='😴';
-  }else if(currentState===1){
+  }else if(currentLight>230){
     color='#ff4444';glowColor='rgba(255,68,68,0.35)';face='😮';
   }else{
     color='#00ff66';glowColor='rgba(0,255,102,0.35)';face='😊';
   }
+
+  debugLog('light='+currentLight+' → face='+face+' color='+color);
 
   fill.style.stroke=color;
   val.style.color=color;
@@ -813,21 +841,21 @@ function updateStats(){
   const sd=document.getElementById('stateDesc');
   const pill=document.getElementById('statusPill');
 
-  if(currentState===-1){
+  if(currentLight<190){
     st.textContent='暗';st.style.color='#ffcc00';
     sd.textContent='< 500 lx';
     pill.textContent='⚠ 光線不足，再亮一點';
     pill.className='status-pill dark';
-  }else if(currentState===0){
-    st.textContent='適合';st.style.color='#00ff66';
-    sd.textContent='500-1000';
-    pill.textContent='✓ 光線適合閱讀';
-    pill.className='status-pill good';
-  }else{
+  }else if(currentLight>230){
     st.textContent='亮';st.style.color='#ff4444';
     sd.textContent='> 1000';
     pill.textContent='⚠ 光線太強，注意眼睛';
     pill.className='status-pill bright';
+  }else{
+    st.textContent='適合';st.style.color='#00ff66';
+    sd.textContent='500-1000';
+    pill.textContent='✓ 光線適合閱讀';
+    pill.className='status-pill good';
   }
 }
 
@@ -838,11 +866,9 @@ function showResult(totalS,goodS,avgL,avgLux,avgSt){
   document.getElementById('rGood').textContent=formatTime(goodS);
   document.getElementById('rLux').textContent=avgLux+' lx';
   const rs=document.getElementById('rState');
-  // 用平均光值自己判斷（更可靠）
-  let st=judgeState(avgL);
-  if(st===-1){rs.textContent='😴 偏暗';rs.style.color='#ffcc00'}
-  else if(st===0){rs.textContent='😊 良好';rs.style.color='#00ff66'}
-  else{rs.textContent='😮 偏亮';rs.style.color='#ff4444'}
+  if(avgL<190){rs.textContent='😴 偏暗';rs.style.color='#ffcc00'}
+  else if(avgL>230){rs.textContent='😮 偏亮';rs.style.color='#ff4444'}
+  else{rs.textContent='😊 良好';rs.style.color='#00ff66'}
 }
 
 function formatTime(s){
