@@ -630,6 +630,15 @@ const UART_SERVICE='6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 let device=null,connected=false,rxBuffer='';
 
 let currentLight=0,currentLux=0,currentState=0;
+
+// 手機自己判斷光線狀態（不只依賴 micro:bit 送的數字）
+const THRESH_LOW=190;
+const THRESH_HIGH=230;
+function judgeState(light){
+  if(light<THRESH_LOW) return -1;
+  if(light>THRESH_HIGH) return 1;
+  return 0;
+}
 let isRecording=false;
 const MAX_CHART=60;
 let chartData=[];
@@ -715,7 +724,8 @@ function parseMessage(msg){
     if(p.length>=3){
       currentLight=parseInt(p[0]);
       currentLux=parseInt(p[1]);
-      currentState=parseInt(p[2]);
+      // 手機自己判斷狀態（比依賴 micro:bit 更可靠）
+      currentState=judgeState(currentLight);
       updateGauge();updateStats();addChartPoint(currentLight);
       if(p.length>=5){
         let recFlag=parseInt(p[3]);
@@ -820,8 +830,10 @@ function showResult(totalS,goodS,avgL,avgLux,avgSt){
   document.getElementById('rGood').textContent=formatTime(goodS);
   document.getElementById('rLux').textContent=avgLux+' lx';
   const rs=document.getElementById('rState');
-  if(avgSt===-1){rs.textContent='😴 偏暗';rs.style.color='var(--yellow)'}
-  else if(avgSt===0){rs.textContent='😊 良好';rs.style.color='var(--green)'}
+  // 用平均光值自己判斷（更可靠）
+  let st=judgeState(avgL);
+  if(st===-1){rs.textContent='😴 偏暗';rs.style.color='var(--yellow)'}
+  else if(st===0){rs.textContent='😊 良好';rs.style.color='var(--green)'}
   else{rs.textContent='😮 偏亮';rs.style.color='var(--red)'}
 }
 
