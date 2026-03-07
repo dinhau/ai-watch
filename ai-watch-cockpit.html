@@ -22,8 +22,8 @@ body{
 body::before{
   content:'';position:fixed;inset:0;z-index:-2;
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(200,150,60,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(200,150,60,0.02) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 0%, rgba(232,147,90,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(232,147,90,0.02) 0%, transparent 40%),
     #10131a;
 }
 
@@ -42,13 +42,13 @@ body::after{
 }
 .top::after{
   content:'';position:absolute;bottom:-2px;left:0;width:40%;height:2px;
-  background:linear-gradient(90deg,rgba(220,170,70,0.5),transparent);
+  background:linear-gradient(90deg,rgba(232,147,90,0.5),transparent);
 }
 
 .brand{
   font-family:'B612 Mono',monospace;
   font-size:0.7rem;letter-spacing:3px;font-weight:700;
-  color:#dcaa46;
+  color:#e8935a;
 }
 .brand-sub{
   font-family:'B612 Mono',monospace;
@@ -83,7 +83,7 @@ body::after{
 /* 面板頂部高光條 */
 .pnl::before{
   content:'';position:absolute;top:0;left:12px;right:12px;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(220,170,70,0.12),transparent);
+  background:linear-gradient(90deg,transparent,rgba(232,147,90,0.12),transparent);
 }
 
 /* ===== 主儀表 ===== */
@@ -91,13 +91,13 @@ body::after{
   display:flex;justify-content:center;
   padding:12px 0 8px;
 }
-.inst{position:relative;width:210px;height:210px}
+.inst{position:relative;width:210px;height:210px;overflow:hidden;border-radius:26%}
 
-/* 儀表外框 — 像真的飛機儀表 */
+/* 儀表外框 — 圓角方形 */
 .inst-bezel{
   position:absolute;inset:-6px;
   border:2px solid #252a38;
-  border-radius:50%;
+  border-radius:26%;
   box-shadow:
     inset 0 1px 3px rgba(0,0,0,0.4),
     0 1px 0 rgba(255,255,255,0.03);
@@ -107,10 +107,10 @@ body::after{
 .inst-ticks{position:absolute;inset:0}
 .inst-ticks svg{width:100%;height:100%}
 
-.inst-svg{width:100%;height:100%;transform:rotate(-90deg)}
-.inst-track{fill:none;stroke:#1e2230;stroke-width:8}
+.inst-svg{width:100%;height:100%}
+.inst-track{fill:none;stroke:#1e2230;stroke-width:8;stroke-linejoin:round}
 .inst-bar{
-  fill:none;stroke-width:8;stroke-linecap:butt;
+  fill:none;stroke-width:8;stroke-linejoin:round;stroke-linecap:butt;
   stroke-dasharray:0 999;
   transition:stroke-dasharray 0.8s ease,stroke 0.5s;
 }
@@ -177,7 +177,7 @@ body::after{
   border-bottom:1px solid #1e2230;
   margin-bottom:12px;
 }
-.data-strip b{color:#dcaa46;font-weight:400}
+.data-strip b{color:#e8935a;font-weight:400}
 
 /* ===== 三格 ===== */
 .tri{
@@ -295,11 +295,11 @@ body::after{
 }
 .btn-fly.go{
   background:linear-gradient(180deg,#1a1e2a,#14171f);
-  color:#dcaa46;
-  border-color:#dcaa46;
-  box-shadow:0 0 12px rgba(220,170,70,0.08);
+  color:#e8935a;
+  border-color:#e8935a;
+  box-shadow:0 0 12px rgba(232,147,90,0.08);
 }
-.btn-fly.go:active{background:#1e2230;box-shadow:0 0 20px rgba(220,170,70,0.15)}
+.btn-fly.go:active{background:#1e2230;box-shadow:0 0 20px rgba(232,147,90,0.15)}
 .btn-fly.off{
   background:linear-gradient(180deg,#1a1e2a,#14171f);
   color:#d9534f;border-color:#3a2525;
@@ -345,8 +345,8 @@ body::after{
         <div class="inst-ticks"><svg viewBox="0 0 210 210" id="tickSvg"></svg></div>
 
         <svg class="inst-svg" viewBox="0 0 210 210">
-          <circle class="inst-track" cx="105" cy="105" r="88"/>
-          <circle class="inst-bar" id="gBar" cx="105" cy="105" r="88"/>
+          <rect class="inst-track" x="17" y="17" width="176" height="176" rx="46" ry="46"/>
+          <rect class="inst-bar" id="gBar" x="17" y="17" width="176" height="176" rx="46" ry="46"/>
         </svg>
         <div class="inst-center">
           <div class="inst-val" id="gNum">---</div>
@@ -426,7 +426,7 @@ body::after{
 
 </div>
 
-<button class="btn-fly go" id="btnBle" onclick="go()">✈ 連線 MICRO:BIT</button>
+<button class="btn-fly go" id="btnBle" onclick="go()">連線 MICRO:BIT</button>
 
 <div class="footer">
   <span>AI LIGHT WATCH · BLE UART</span>
@@ -435,25 +435,55 @@ body::after{
 
 <script>
 // ====================================================
-// 畫刻度（飛機儀表感）
+// 畫刻度（沿著圓角方形邊緣）
 // ====================================================
 (function(){
   var svg = document.getElementById('tickSvg');
   var html = '';
-  for(var i=0; i<36; i++){
-    var ang = i * 10;
-    var rad = ang * 3.14159 / 180;
-    var major = (i % 3 === 0);
-    var r1 = 102, r2 = major ? 93 : 96;
-    var cx = 105, cy = 105;
-    var x1 = cx + r1 * Math.cos(rad);
-    var y1 = cy + r1 * Math.sin(rad);
-    var x2 = cx + r2 * Math.cos(rad);
-    var y2 = cy + r2 * Math.sin(rad);
-    var op = major ? 0.25 : 0.08;
-    var sw = major ? 1.5 : 0.8;
-    html += '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#dcaa46" stroke-width="'+sw+'" opacity="'+op+'"/>';
+  var color = '#e8935a';
+
+  // 每邊放 7 個刻度（中間那個是主刻度）
+  var edges = [
+    // 上邊：從左到右
+    {x1f:63, y1:11, x2f:63, y2:19, dx:14, count:7, horiz:true},
+    // 右邊：從上到下
+    {x1:199, y1f:63, x2:191, y2f:63, dy:14, count:7, horiz:false},
+    // 下邊：從左到右
+    {x1f:63, y1:199, x2f:63, y2:191, dx:14, count:7, horiz:true},
+    // 左邊：從上到下
+    {x1:11, y1f:63, x2:19, y2f:63, dy:14, count:7, horiz:false}
+  ];
+
+  for(var e=0; e<edges.length; e++){
+    var ed = edges[e];
+    for(var i=0; i<ed.count; i++){
+      var major = (i === 0 || i === 3 || i === 6);
+      var op = major ? 0.3 : 0.1;
+      var sw = major ? 1.5 : 0.8;
+      var x1, y1, x2, y2;
+      if(ed.horiz){
+        x1 = ed.x1f + i * ed.dx;
+        x2 = x1;
+        y1 = ed.y1;
+        y2 = ed.y2;
+      } else {
+        y1 = ed.y1f + i * ed.dy;
+        y2 = y1;
+        x1 = ed.x1;
+        x2 = ed.x2;
+      }
+      html += '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+color+'" stroke-width="'+sw+'" opacity="'+op+'"/>';
+    }
   }
+
+  // 四個角落小方塊裝飾
+  var corners = [
+    {x:21,y:21},{x:181,y:21},{x:181,y:181},{x:21,y:181}
+  ];
+  for(var c=0;c<corners.length;c++){
+    html += '<rect x="'+corners[c].x+'" y="'+corners[c].y+'" width="4" height="4" fill="'+color+'" opacity="0.15" rx="1"/>';
+  }
+
   svg.innerHTML = html;
 })();
 
@@ -471,7 +501,7 @@ function go(){
 
 function conn(){
   var b = document.getElementById('btnBle');
-  b.disabled = true; b.textContent = '✈ 搜尋中...';
+  b.disabled = true; b.textContent = '搜尋中...';
   navigator.bluetooth.requestDevice({
     filters:[{namePrefix:'BBC micro:bit'}],
     optionalServices:[UART]
@@ -498,12 +528,12 @@ function conn(){
     document.getElementById('bleInd').classList.add('on');
     document.getElementById('bleText').textContent = 'LINKED';
     document.getElementById('dash').classList.remove('dim');
-    b.textContent = '✈ 中斷連線';
+    b.textContent = '中斷連線';
     b.className = 'btn-fly off';
     b.disabled = false;
   })
   .catch(function(){
-    b.textContent = '✈ 連線 MICRO:BIT';
+    b.textContent = '連線 MICRO:BIT';
     b.className = 'btn-fly go'; b.disabled = false;
   });
 }
@@ -519,7 +549,7 @@ function onDisc(){
   document.getElementById('bleText').textContent = 'OFFLINE';
   document.getElementById('dash').classList.add('dim');
   var b = document.getElementById('btnBle');
-  b.textContent = '✈ 連線 MICRO:BIT';
+  b.textContent = '連線 MICRO:BIT';
   b.className = 'btn-fly go'; b.disabled = false;
 }
 
@@ -594,8 +624,8 @@ function showGauge(){
   var face = document.getElementById('gFace');
 
   var pct = light/255; if(pct>1)pct=1; if(pct<0)pct=0;
-  var arc = 2*3.14159*88*0.7;
-  bar.setAttribute('stroke-dasharray', (arc*pct)+' 999');
+  var arc = 625;
+  bar.setAttribute('stroke-dasharray', (arc*pct)+' '+arc);
   num.textContent = light;
 
   // 指示燈先全部關
@@ -609,10 +639,10 @@ function showGauge(){
   var color, emoji;
 
   if(light < 190){
-    color = '#dcaa46';
+    color = '#e8935a';
     emoji = '😴';
-    document.getElementById('ledDark').style.background = '#dcaa46';
-    document.getElementById('ledDark').style.boxShadow = '0 0 6px rgba(220,170,70,0.6)';
+    document.getElementById('ledDark').style.background = '#e8935a';
+    document.getElementById('ledDark').style.boxShadow = '0 0 6px rgba(232,147,90,0.6)';
   } else if(light > 230){
     color = '#d9534f';
     emoji = '😮';
@@ -647,12 +677,12 @@ function showStats(){
   var mt = document.getElementById('msgText');
 
   if(light < 190){
-    st.textContent='偏暗'; st.style.color='#dcaa46';
+    st.textContent='偏暗'; st.style.color='#e8935a';
     sd.textContent='< 500 lx';
     mt.textContent='💡 光線不太夠喔，開燈會更舒服';
-    mt.style.color='#dcaa46';
-    mt.style.background='rgba(220,170,70,0.06)';
-    mt.style.borderColor='#dcaa46';
+    mt.style.color='#e8935a';
+    mt.style.background='rgba(232,147,90,0.06)';
+    mt.style.borderColor='#e8935a';
   } else if(light > 230){
     st.textContent='偏亮'; st.style.color='#d9534f';
     sd.textContent='> 1000 lx';
@@ -680,7 +710,7 @@ function showResult(total,good,avgL,avgLux){
   document.getElementById('rGood').style.color='#5cb85c';
   document.getElementById('rLux').textContent=avgLux+' lx';
   var rs=document.getElementById('rSt');
-  if(avgL<190){rs.textContent='😴 偏暗';rs.style.color='#dcaa46'}
+  if(avgL<190){rs.textContent='😴 偏暗';rs.style.color='#e8935a'}
   else if(avgL>230){rs.textContent='😮 偏亮';rs.style.color='#d9534f'}
   else{rs.textContent='😊 良好';rs.style.color='#5cb85c'}
 }
@@ -713,7 +743,7 @@ function drawChart(){
   ctx.fillStyle='rgba(92,184,92,0.03)';
   ctx.fillRect(0,yHi,w,yLo-yHi);
 
-  ctx.strokeStyle='rgba(220,170,70,0.06)';
+  ctx.strokeStyle='rgba(232,147,90,0.06)';
   ctx.lineWidth=1;ctx.setLineDash([3,6]);
   ctx.beginPath();
   ctx.moveTo(0,yLo);ctx.lineTo(w,yLo);
@@ -728,7 +758,7 @@ function drawChart(){
   }
 
   var lc;
-  if(light<190)lc='#dcaa46';
+  if(light<190)lc='#e8935a';
   else if(light>230)lc='#d9534f';
   else lc='#5cb85c';
 
@@ -738,7 +768,7 @@ function drawChart(){
 
   var lx=(off+chart.length-1)*step, fx=off*step;
   var gr=ctx.createLinearGradient(0,0,0,h);
-  if(light<190){gr.addColorStop(0,'rgba(220,170,70,0.07)')}
+  if(light<190){gr.addColorStop(0,'rgba(232,147,90,0.07)')}
   else if(light>230){gr.addColorStop(0,'rgba(217,83,79,0.07)')}
   else{gr.addColorStop(0,'rgba(92,184,92,0.07)')}
   gr.addColorStop(1,'rgba(0,0,0,0)');
@@ -750,7 +780,7 @@ function drawChart(){
   ctx.beginPath();ctx.arc(lx,ly,3,0,6.28);
   ctx.fillStyle=lc;ctx.fill();
   ctx.beginPath();ctx.arc(lx,ly,6,0,6.28);
-  if(light<190)ctx.fillStyle='rgba(220,170,70,0.15)';
+  if(light<190)ctx.fillStyle='rgba(232,147,90,0.15)';
   else if(light>230)ctx.fillStyle='rgba(217,83,79,0.15)';
   else ctx.fillStyle='rgba(92,184,92,0.15)';
   ctx.fill();
