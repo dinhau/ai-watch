@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AI 光線手錶</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #060b18;
+    --card: #0d1429;
+    --card-border: rgba(255,255,255,0.04);
+    --blue: #4dabf7;
+    --blue-dim: #1a3a5c;
+    --green: #40e07a;
+    --green-dim: rgba(64,224,122,0.15);
+    --yellow: #ffd43b;
+    --yellow-dim: rgba(255,212,59,0.15);
+    --red: #ff6b6b;
+    --red-dim: rgba(255,107,107,0.15);
+    --text: #e4eaf5;
+    --text-dim: #4a5580;
+    --radius: 18px;
+  }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 20px 16px 40px;
+    overflow-x: hidden;
+  }
+
+  /* ===== 頂部標題列 ===== */
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .top-bar h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--blue), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .ble-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    transition: all 0.4s;
+  }
+  .ble-badge.off {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dim);
+  }
+  .ble-badge.on {
+    background: var(--green-dim);
+    color: var(--green);
+    box-shadow: 0 0 12px rgba(64,224,122,0.2);
+  }
+
+  /* ===== 主圓形儀表 ===== */
+  .gauge-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .gauge {
+    position: relative;
+    width: 220px;
+    height: 220px;
+  }
+  .gauge svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+  .gauge-bg {
+    fill: none;
+    stroke: rgba(255,255,255,0.04);
+    stroke-width: 12;
+  }
+  .gauge-fill {
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 12;
+    stroke-linecap: round;
+    stroke-dasharray: 628;
+    stroke-dashoffset: 628;
+    transition: stroke-dashoffset 0.6s ease, stroke 0.4s;
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+  .gauge-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .gauge-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.8rem;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--blue);
+    transition: color 0.4s;
+  }
+  .gauge-unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .gauge-emoji {
+    font-size: 1.8rem;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* ===== 狀態文字 ===== */
+  .status-bar {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .status-msg {
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 6px 20px;
+    border-radius: 20px;
+    display: inline-block;
+    transition: all 0.4s;
+  }
+  .status-msg.good { background: var(--green-dim); color: var(--green); }
+  .status-msg.dark { background: var(--yellow-dim); color: var(--yellow); }
+  .status-msg.bright { background: var(--red-dim); color: var(--red); }
+  .status-msg.off { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+
+  /* ===== 三個數據卡 ===== */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 14px 8px;
+    text-align: center;
+  }
+  .stat-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .stat-unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* ===== 錄影狀態卡 ===== */
+  .rec-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: border-color 0.4s;
+  }
+  .rec-card.active {
+    border-color: rgba(255,107,107,0.3);
+  }
+  .rec-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #333;
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .rec-dot.active {
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red);
+    animation: rec-blink 1s ease-in-out infinite;
+  }
+  @keyframes rec-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .rec-info { flex-grow: 1; }
+  .rec-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+  }
+  .rec-time {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  /* ===== 閱讀結果卡 ===== */
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .result-card.show { display: block; }
+  .result-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .result-body {
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .result-item .ri-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .result-item .ri-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  /* ===== 歷史趨勢圖 ===== */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .chart-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .chart-area {
+    width: 100%;
+    height: 100px;
+    position: relative;
+  }
+  .chart-area canvas {
+    width: 100%;
+    height: 100%;
+  }
+  .chart-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ===== 連線按鈕 ===== */
+  .btn-ble {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .btn-ble.connect {
+    background: linear-gradient(135deg, #1a5bb5, var(--blue));
+    color: white;
+    box-shadow: 0 4px 20px rgba(77,171,247,0.25);
+  }
+  .btn-ble.connect:active {
+    transform: scale(0.97);
+  }
+  .btn-ble.disconnect {
+    background: rgba(255,107,107,0.1);
+    color: var(--red);
+    border: 1px solid rgba(255,107,107,0.2);
+  }
+  .btn-ble:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ===== 未連線時的覆蓋 ===== */
+  .dashboard { transition: opacity 0.4s; }
+  .dashboard.dimmed { opacity: 0.3; }
+</style>
+</head>
+<body>
+
+<!-- 頂部 -->
+<div class="top-bar">
+  <h1>AI LIGHT WATCH</h1>
+  <span class="ble-badge off" id="bleBadge">未連線</span>
+</div>
+
+<!-- 儀表板 -->
+<div class="dashboard dimmed" id="dashboard">
+
+  <!-- 圓形儀表 -->
+  <div class="gauge-wrapper">
+    <div class="gauge">
+      <svg viewBox="0 0 220 220">
+        <circle class="gauge-bg" cx="110" cy="110" r="100"/>
+        <circle class="gauge-fill" id="gaugeFill" cx="110" cy="110" r="100"/>
+      </svg>
+      <div class="gauge-center">
+        <div class="gauge-value" id="gaugeValue">--</div>
+        <div class="gauge-unit">LIGHT LEVEL</div>
+        <span class="gauge-emoji" id="gaugeEmoji">💤</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 狀態 -->
+  <div class="status-bar">
+    <span class="status-msg off" id="statusMsg">等待連線</span>
+  </div>
+
+  <!-- 三個小卡 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">照度</div>
+      <div class="stat-value" id="luxValue">--</div>
+      <div class="stat-unit">lux</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">光值</div>
+      <div class="stat-value" id="rawValue">--</div>
+      <div class="stat-unit">/ 255</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">狀態</div>
+      <div class="stat-value" id="stateText">--</div>
+      <div class="stat-unit" id="stateDesc">&nbsp;</div>
+    </div>
+  </div>
+
+  <!-- 錄影狀態 -->
+  <div class="rec-card" id="recCard">
+    <div class="rec-dot" id="recDot"></div>
+    <div class="rec-info">
+      <div class="rec-label" id="recLabel">閱讀計時：待機中</div>
+      <div class="rec-time" id="recTime">00:00</div>
+    </div>
+  </div>
+
+  <!-- 閱讀結果 -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">📊 上次閱讀結果</div>
+    <div class="result-body">
+      <div class="result-item">
+        <div class="ri-label">總閱讀時間</div>
+        <div class="ri-value" id="rTotal">--</div>
+      </div>
+      <div class="result-item">
+        <div class="ri-label">光線良好時間</div>
+        <div class="ri-value" style="color:var(--green)" id="rGood">--</div>
+      </div>
+      <div class="result-item">
+        <div class="ri-label">平均照度</div>
+        <div class="ri-value" id="rLux">--</div>
+      </div>
+      <div class="result-item">
+        <div class="ri-label">平均狀態</div>
+        <div class="ri-value" id="rState">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 趨勢圖 -->
+  <div class="chart-card">
+    <div class="chart-title">光線趨勢（最近 60 秒）</div>
+    <div class="chart-area">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+    <div class="chart-labels">
+      <span>60 秒前</span>
+      <span>現在</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- 連線按鈕 -->
+<button class="btn-ble connect" id="btnBle" onclick="toggleBLE()">
+  🔗 連線 micro:bit
+</button>
+
+<script>
+// ============================================
+// 藍牙連線（跟測試頁一樣的做法）
+// ============================================
+const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+
+let device = null;
+let connected = false;
+let rxBuffer = '';
+
+// ============================================
+// 資料狀態
+// ============================================
+let currentLight = 0;
+let currentLux = 0;
+let currentState = 0;
+let isRecording = false;
+
+// 趨勢圖資料（最近 60 筆）
+const MAX_CHART = 60;
+let chartData = [];
+
+// ============================================
+// 藍牙連線/斷線
+// ============================================
+async function toggleBLE() {
+  if (connected) {
+    if (device && device.gatt.connected) device.gatt.disconnect();
+    onDisconnected();
+  } else {
+    await connectBLE();
+  }
+}
+
+async function connectBLE() {
+  const btn = document.getElementById('btnBle');
+  btn.disabled = true;
+  btn.textContent = '⏳ 搜尋中...';
+
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [UART_SERVICE]
+    });
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+
+    // Bluefy 相容：取全部 characteristics，每個都嘗試訂閱
+    const chars = await service.getCharacteristics();
+    for (const c of chars) {
+      try {
+        c.addEventListener('characteristicvaluechanged', onData);
+        await c.startNotifications();
+      } catch (e) { /* 訂閱失敗就跳過 */ }
+    }
+
+    connected = true;
+    document.getElementById('bleBadge').className = 'ble-badge on';
+    document.getElementById('bleBadge').textContent = '已連線';
+    document.getElementById('dashboard').classList.remove('dimmed');
+    btn.textContent = '🔌 斷開連線';
+    btn.className = 'btn-ble disconnect';
+    btn.disabled = false;
+
+  } catch (err) {
+    btn.textContent = '🔗 連線 micro:bit';
+    btn.className = 'btn-ble connect';
+    btn.disabled = false;
+  }
+}
+
+function onDisconnected() {
+  connected = false;
+  rxBuffer = '';
+  document.getElementById('bleBadge').className = 'ble-badge off';
+  document.getElementById('bleBadge').textContent = '未連線';
+  document.getElementById('dashboard').classList.add('dimmed');
+  const btn = document.getElementById('btnBle');
+  btn.textContent = '🔗 連線 micro:bit';
+  btn.className = 'btn-ble connect';
+  btn.disabled = false;
+}
+
+// ============================================
+// 接收資料
+// ============================================
+function onData(event) {
+  const text = new TextDecoder().decode(event.target.value);
+  rxBuffer += text;
+  const lines = rxBuffer.split('\n');
+  rxBuffer = lines.pop();
+
+  for (const line of lines) {
+    const msg = line.trim();
+    if (!msg) continue;
+    parseMessage(msg);
+  }
+}
+
+// ============================================
+// 解析 micro:bit 送來的訊息
+// ============================================
+// 格式說明：
+//   D:光值,lux,狀態,錄影中,已過秒數 → 每秒的即時數據
+//   REC:1              → 開始錄影（閱讀計時）
+//   REC:0              → 停止錄影
+//   R:總秒,好秒,avgL,avgLux,avgSt → 閱讀結果
+//   T:mm:ss            → 目前累計時間
+// ============================================
+function parseMessage(msg) {
+  if (msg.startsWith('D:')) {
+    // --- 即時數據（錄影中也會持續收到）---
+    const parts = msg.substring(2).split(',');
+    if (parts.length >= 3) {
+      currentLight = parseInt(parts[0]);
+      currentLux = parseInt(parts[1]);
+      currentState = parseInt(parts[2]);
+      updateGauge();
+      updateStats();
+      addChartPoint(currentLight);
+
+      // 如果有第 4、5 個欄位 → 錄影狀態 + 已過秒數
+      if (parts.length >= 5) {
+        let recFlag = parseInt(parts[3]);
+        let elapsedS = parseInt(parts[4]);
+
+        if (recFlag === 1 && !isRecording) {
+          // micro:bit 正在錄影，但手機還不知道 → 同步狀態
+          isRecording = true;
+          document.getElementById('recDot').classList.add('active');
+          document.getElementById('recCard').classList.add('active');
+          document.getElementById('recLabel').textContent = '閱讀計時：錄影中';
+        } else if (recFlag === 0 && isRecording) {
+          // micro:bit 已停止，手機同步
+          isRecording = false;
+          document.getElementById('recDot').classList.remove('active');
+          document.getElementById('recCard').classList.remove('active');
+          document.getElementById('recLabel').textContent = '閱讀計時：已停止';
+        }
+
+        // 用 micro:bit 的計時更新顯示（比手機自己算更準）
+        if (recFlag === 1) {
+          document.getElementById('recTime').textContent = formatTime(elapsedS);
+        }
+      }
+    }
+  }
+  else if (msg === 'REC:1') {
+    // --- 開始錄影 ---
+    isRecording = true;
+    document.getElementById('recDot').classList.add('active');
+    document.getElementById('recCard').classList.add('active');
+    document.getElementById('recLabel').textContent = '閱讀計時：錄影中';
+    document.getElementById('recTime').textContent = '00:00';
+  }
+  else if (msg === 'REC:0') {
+    // --- 停止錄影 ---
+    isRecording = false;
+    document.getElementById('recDot').classList.remove('active');
+    document.getElementById('recCard').classList.remove('active');
+    document.getElementById('recLabel').textContent = '閱讀計時：已停止';
+  }
+  else if (msg.startsWith('R:')) {
+    // --- 閱讀結果 ---
+    const parts = msg.substring(2).split(',');
+    if (parts.length >= 5) {
+      showResult(
+        parseInt(parts[0]),  // totalS
+        parseInt(parts[1]),  // goodS
+        parseInt(parts[2]),  // avgL
+        parseInt(parts[3]),  // avgLux
+        parseInt(parts[4])   // avgSt
+      );
+    }
+  }
+  else if (msg.startsWith('T:')) {
+    // --- 累計時間 ---
+    document.getElementById('recTime').textContent = msg.substring(2);
+  }
+}
+
+// ============================================
+// 更新圓形儀表
+// ============================================
+function updateGauge() {
+  const fill = document.getElementById('gaugeFill');
+  const valueEl = document.getElementById('gaugeValue');
+  const emojiEl = document.getElementById('gaugeEmoji');
+
+  // 圓弧進度（光值 0~255 → 0~100%）
+  const pct = Math.min(currentLight / 255, 1);
+  const circumference = 2 * Math.PI * 100; // r=100
+  fill.style.strokeDashoffset = circumference * (1 - pct);
+
+  valueEl.textContent = currentLight;
+
+  // 顏色與表情
+  if (currentState === -1) {
+    fill.style.stroke = 'var(--yellow)';
+    valueEl.style.color = 'var(--yellow)';
+    emojiEl.textContent = '😴';
+  } else if (currentState === 0) {
+    fill.style.stroke = 'var(--green)';
+    valueEl.style.color = 'var(--green)';
+    emojiEl.textContent = '😊';
+  } else {
+    fill.style.stroke = 'var(--red)';
+    valueEl.style.color = 'var(--red)';
+    emojiEl.textContent = '😮';
+  }
+}
+
+// ============================================
+// 更新三個小卡片
+// ============================================
+function updateStats() {
+  document.getElementById('luxValue').textContent = currentLux;
+  document.getElementById('rawValue').textContent = currentLight;
+
+  const stateText = document.getElementById('stateText');
+  const stateDesc = document.getElementById('stateDesc');
+  const statusMsg = document.getElementById('statusMsg');
+
+  if (currentState === -1) {
+    stateText.textContent = '太暗';
+    stateText.style.color = 'var(--yellow)';
+    stateDesc.textContent = '< 500 lux';
+    statusMsg.textContent = '😴 光線不足，再亮一點比較好';
+    statusMsg.className = 'status-msg dark';
+  } else if (currentState === 0) {
+    stateText.textContent = '適合';
+    stateText.style.color = 'var(--green)';
+    stateDesc.textContent = '500-1000 lux';
+    statusMsg.textContent = '😊 光線剛剛好！適合閱讀';
+    statusMsg.className = 'status-msg good';
+  } else {
+    stateText.textContent = '太亮';
+    stateText.style.color = 'var(--red)';
+    stateDesc.textContent = '> 1000 lux';
+    statusMsg.textContent = '😮 光線太強了，小心眼睛';
+    statusMsg.className = 'status-msg bright';
+  }
+}
+
+// ============================================
+// 顯示閱讀結果
+// ============================================
+function showResult(totalS, goodS, avgL, avgLux, avgSt) {
+  const card = document.getElementById('resultCard');
+  card.classList.add('show');
+
+  // 總時間
+  document.getElementById('rTotal').textContent = formatTime(totalS);
+  // 好的時間
+  document.getElementById('rGood').textContent = formatTime(goodS);
+  // 平均照度
+  document.getElementById('rLux').textContent = avgLux + ' lux';
+  // 平均狀態
+  if (avgSt === -1) {
+    document.getElementById('rState').textContent = '😴 偏暗';
+    document.getElementById('rState').style.color = 'var(--yellow)';
+  } else if (avgSt === 0) {
+    document.getElementById('rState').textContent = '😊 良好';
+    document.getElementById('rState').style.color = 'var(--green)';
+  } else {
+    document.getElementById('rState').textContent = '😮 偏亮';
+    document.getElementById('rState').style.color = 'var(--red)';
+  }
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+// ============================================
+// 趨勢圖（最近 60 秒）
+// ============================================
+function addChartPoint(value) {
+  chartData.push(value);
+  if (chartData.length > MAX_CHART) chartData.shift();
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById('chartCanvas');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+
+  // 高解析度（Retina）
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (chartData.length < 2) return;
+
+  // 畫「適合範圍」的底色（190~230）
+  const yLow = h - (190 / 255) * h;
+  const yHigh = h - (230 / 255) * h;
+  ctx.fillStyle = 'rgba(64, 224, 122, 0.06)';
+  ctx.fillRect(0, yHigh, w, yLow - yHigh);
+
+  // 虛線：190 和 230 的參考線
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, yLow);
+  ctx.lineTo(w, yLow);
+  ctx.moveTo(0, yHigh);
+  ctx.lineTo(w, yHigh);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 畫數據線
+  const step = w / (MAX_CHART - 1);
+  const startIdx = MAX_CHART - chartData.length;
+
+  ctx.beginPath();
+  for (let i = 0; i < chartData.length; i++) {
+    const x = (startIdx + i) * step;
+    const y = h - (chartData[i] / 255) * h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'var(--blue)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 漸層填充
+  const lastX = (startIdx + chartData.length - 1) * step;
+  const firstX = startIdx * step;
+  const gradient = ctx.createLinearGradient(0, 0, 0, h);
+  gradient.addColorStop(0, 'rgba(77, 171, 247, 0.2)');
+  gradient.addColorStop(1, 'rgba(77, 171, 247, 0)');
+
+  ctx.lineTo(lastX, h);
+  ctx.lineTo(firstX, h);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+}
+
+// 視窗大小改變時重畫
+window.addEventListener('resize', drawChart);
+</script>
+</body>
+</html>
