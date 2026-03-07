@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AI 光線手錶</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:'Quicksand','Noto Sans TC',sans-serif;
+  background:#0f1923;
+  color:#e8ddd0;
+  min-height:100vh;
+  padding:20px 16px 40px;
+  overflow-x:hidden;
+}
+
+/* 溫暖漸層背景 */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-2;
+  background:
+    radial-gradient(ellipse at 30% 10%,rgba(255,180,80,0.06) 0%,transparent 50%),
+    radial-gradient(ellipse at 70% 90%,rgba(180,140,255,0.04) 0%,transparent 40%),
+    radial-gradient(ellipse at 50% 50%,rgba(255,220,160,0.02) 0%,transparent 60%),
+    #0f1923;
+}
+
+/* 淡淡的點狀背景（像星空） */
+body::after{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(255,200,120,0.15), transparent),
+    radial-gradient(1px 1px at 60% 15%, rgba(255,200,120,0.1), transparent),
+    radial-gradient(1px 1px at 80% 45%, rgba(255,200,120,0.12), transparent),
+    radial-gradient(1px 1px at 40% 70%, rgba(255,200,120,0.08), transparent),
+    radial-gradient(1px 1px at 10% 85%, rgba(255,200,120,0.1), transparent),
+    radial-gradient(1px 1px at 90% 75%, rgba(255,200,120,0.08), transparent);
+}
+
+/* ===== 頂部 ===== */
+.header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:24px;
+}
+.header-left{}
+.app-name{
+  font-size:1.3rem;font-weight:700;
+  background:linear-gradient(135deg,#ffc878,#ffaa44);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:0.5px;
+}
+.app-sub{
+  font-family:'DM Mono',monospace;
+  font-size:0.6rem;color:#6a5d50;
+  letter-spacing:1px;margin-top:2px;
+}
+
+.ble-pill{
+  font-family:'DM Mono',monospace;
+  font-size:0.6rem;padding:5px 12px;
+  border-radius:20px;
+  letter-spacing:0.5px;
+  transition:all 0.5s;
+}
+.ble-pill.off{background:rgba(255,255,255,0.04);color:#5a4d40}
+.ble-pill.on{
+  background:rgba(255,180,80,0.12);color:#ffc878;
+  box-shadow:0 0 16px rgba(255,180,80,0.1);
+}
+
+/* ===== 卡片通用 ===== */
+.card{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,200,120,0.06);
+  border-radius:20px;
+  margin-bottom:14px;
+  position:relative;
+}
+
+/* ===== 主圓形儀表 ===== */
+.gauge-area{
+  display:flex;justify-content:center;
+  padding:8px 0 4px;
+}
+.gauge-outer{
+  position:relative;
+  width:220px;height:220px;
+}
+
+/* 發光外圈 */
+.gauge-glow{
+  position:absolute;inset:-16px;
+  border-radius:50%;
+  border:1px solid rgba(255,200,120,0.04);
+  transition:border-color 0.5s,box-shadow 0.5s;
+}
+
+.gauge-svg{width:100%;height:100%;transform:rotate(-90deg)}
+.g-track{fill:none;stroke:rgba(255,200,120,0.06);stroke-width:10;stroke-linecap:round}
+.g-bar{
+  fill:none;stroke-width:10;stroke-linecap:round;
+  stroke-dasharray:0 999;
+  transition:stroke-dasharray 0.8s ease,stroke 0.5s;
+}
+
+.gauge-mid{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  text-align:center;
+}
+.g-number{
+  font-family:'DM Mono',monospace;
+  font-size:2.8rem;font-weight:500;line-height:1;
+  transition:color 0.5s;
+}
+.g-unit{
+  font-family:'DM Mono',monospace;
+  font-size:0.55rem;color:#6a5d50;
+  letter-spacing:2px;margin-top:6px;
+}
+.g-emoji{
+  font-size:2rem;margin-top:4px;display:block;
+  animation:gentleBob 4s ease-in-out infinite;
+}
+@keyframes gentleBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+/* ===== 狀態訊息 ===== */
+.msg-area{text-align:center;margin-bottom:16px;padding:0 20px}
+.msg-bubble{
+  display:inline-block;
+  font-size:0.9rem;font-weight:600;
+  padding:10px 24px;
+  border-radius:24px;
+  letter-spacing:0.3px;
+  transition:all 0.5s;
+  position:relative;
+}
+/* 小三角嘴巴（對話框效果）*/
+.msg-bubble::after{
+  content:'';position:absolute;top:-6px;left:50%;
+  transform:translateX(-50%);
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-bottom:6px solid;
+  border-bottom-color:inherit;
+  transition:border-bottom-color 0.5s;
+}
+
+/* ===== Lux 讀數 ===== */
+.lux-strip{
+  font-family:'DM Mono',monospace;
+  font-size:0.65rem;color:#6a5d50;
+  text-align:center;letter-spacing:1px;
+  padding:8px 0;
+  border-top:1px solid rgba(255,200,120,0.04);
+  border-bottom:1px solid rgba(255,200,120,0.04);
+  margin-bottom:14px;
+}
+.lux-strip b{color:#ffc878;font-weight:500}
+
+/* ===== 三格資料 ===== */
+.trio{
+  display:grid;grid-template-columns:1fr 1fr 1fr;
+  gap:10px;margin-bottom:14px;
+}
+.trio .card{
+  text-align:center;padding:14px 6px;
+}
+.t-label{
+  font-family:'DM Mono',monospace;
+  font-size:0.55rem;color:#6a5d50;
+  letter-spacing:1px;margin-bottom:6px;
+}
+.t-val{
+  font-family:'DM Mono',monospace;
+  font-size:1.15rem;font-weight:500;
+}
+.t-unit{
+  font-family:'DM Mono',monospace;
+  font-size:0.5rem;color:#6a5d50;
+  margin-top:3px;
+}
+
+/* ===== 錄影 ===== */
+.rec-card{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 18px;
+  transition:border-color 0.5s;
+}
+.rec-circle{
+  width:14px;height:14px;position:relative;flex-shrink:0;
+}
+.rc-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:#2a2420;
+  position:absolute;top:2px;left:2px;
+  transition:all 0.3s;
+}
+.rc-dot.on{
+  background:#ff6b6b;
+  box-shadow:0 0 8px #ff6b6b,0 0 20px rgba(255,107,107,0.25);
+  animation:recGlow 1.2s ease-in-out infinite;
+}
+@keyframes recGlow{0%,100%{opacity:1}50%{opacity:0.25}}
+.rc-ring{
+  position:absolute;inset:0;
+  border:1.5px solid transparent;
+  border-radius:50%;transition:all 0.3s;
+}
+.rc-dot.on ~ .rc-ring{border-color:rgba(255,107,107,0.2)}
+
+.rec-body{flex-grow:1}
+.rec-body .rb-label{
+  font-family:'DM Mono',monospace;
+  font-size:0.55rem;color:#6a5d50;
+  letter-spacing:1px;
+}
+.rec-body .rb-time{
+  font-family:'DM Mono',monospace;
+  font-size:1.3rem;font-weight:500;
+  letter-spacing:1px;
+}
+
+/* ===== 結果卡 ===== */
+.res-card{display:none;overflow:hidden}
+.res-card.show{display:block;animation:popIn 0.5s ease-out}
+@keyframes popIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+
+.res-head{
+  font-size:0.85rem;font-weight:700;
+  padding:14px 18px 10px;
+  border-bottom:1px solid rgba(255,200,120,0.06);
+}
+.res-grid{display:grid;grid-template-columns:1fr 1fr}
+.res-item{padding:14px 18px}
+.res-item:nth-child(odd){border-right:1px solid rgba(255,200,120,0.04)}
+.res-item:nth-child(-n+2){border-bottom:1px solid rgba(255,200,120,0.04)}
+.res-item .ri-label{
+  font-size:0.6rem;color:#6a5d50;
+  letter-spacing:0.5px;margin-bottom:4px;font-weight:600;
+}
+.res-item .ri-val{
+  font-family:'DM Mono',monospace;
+  font-size:1.05rem;font-weight:500;
+}
+
+/* ===== 趨勢圖 ===== */
+.chart-top{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 18px 8px;
+}
+.chart-label{
+  font-size:0.7rem;font-weight:700;color:#6a5d50;
+  letter-spacing:0.5px;
+}
+.chart-dot{
+  font-family:'DM Mono',monospace;
+  font-size:0.55rem;color:#ffc878;
+  animation:dotPulse 2s ease-in-out infinite;
+}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.chart-box{padding:0 14px;height:80px}
+.chart-box canvas{width:100%;height:100%}
+.chart-btm{
+  display:flex;justify-content:space-between;
+  padding:4px 18px 12px;
+  font-family:'DM Mono',monospace;
+  font-size:0.5rem;color:#6a5d50;
+}
+
+/* ===== 連線按鈕 ===== */
+.connect-btn{
+  width:100%;padding:16px;
+  border:none;border-radius:16px;
+  font-family:'Quicksand','Noto Sans TC',sans-serif;
+  font-size:1rem;font-weight:700;
+  letter-spacing:0.5px;
+  cursor:pointer;transition:all 0.3s;
+  position:relative;overflow:hidden;
+}
+.connect-btn.go{
+  background:linear-gradient(135deg,rgba(255,180,80,0.15),rgba(255,140,50,0.08));
+  color:#ffc878;
+  border:1px solid rgba(255,180,80,0.2);
+}
+.connect-btn.go:active{
+  background:linear-gradient(135deg,rgba(255,180,80,0.25),rgba(255,140,50,0.15));
+}
+.connect-btn.stop{
+  background:rgba(255,107,107,0.06);
+  color:#ff8888;
+  border:1px solid rgba(255,107,107,0.15);
+}
+.connect-btn:disabled{opacity:0.4;cursor:not-allowed}
+
+.dash{transition:opacity 0.4s}
+.dash.dim{opacity:0.15}
+
+/* 眼睛保護小提醒 */
+.tip-bar{
+  text-align:center;
+  margin-top:16px;padding-top:12px;
+  border-top:1px solid rgba(255,200,120,0.04);
+  font-size:0.65rem;color:#4a3f35;
+  line-height:1.6;
+}
+.tip-bar span{color:#ffc878}
+</style>
+</head>
+<body>
+
+<!-- 頂部 -->
+<div class="header">
+  <div class="header-left">
+    <div class="app-name">🌟 AI 光線手錶</div>
+    <div class="app-sub">SMART READING LIGHT GUARD</div>
+  </div>
+  <div class="ble-pill off" id="bleTag">未連線</div>
+</div>
+
+<div class="dash dim" id="dash">
+
+  <!-- 主儀表 -->
+  <div class="gauge-area">
+    <div class="gauge-outer">
+      <div class="gauge-glow" id="gGlow"></div>
+      <svg class="gauge-svg" viewBox="0 0 220 220">
+        <circle class="g-track" cx="110" cy="110" r="96"/>
+        <circle class="g-bar" id="gBar" cx="110" cy="110" r="96"/>
+      </svg>
+      <div class="gauge-mid">
+        <div class="g-number" id="gNum">---</div>
+        <div class="g-unit">LIGHT LEVEL</div>
+        <span class="g-emoji" id="gFace">💤</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 狀態訊息氣泡 -->
+  <div class="msg-area">
+    <div class="msg-bubble" id="msgBubble"
+         style="color:#5a4d40;background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.03)">
+      等待連線中...
+    </div>
+  </div>
+
+  <!-- Lux 讀數 -->
+  <div class="lux-strip" id="luxStrip">照度 <b>---</b> lux · 感測器就緒</div>
+
+  <!-- 三格資料 -->
+  <div class="trio">
+    <div class="card">
+      <div class="t-label">照度</div>
+      <div class="t-val" id="vLux">--</div>
+      <div class="t-unit">LUX</div>
+    </div>
+    <div class="card">
+      <div class="t-label">光值</div>
+      <div class="t-val" id="vRaw">--</div>
+      <div class="t-unit">/ 255</div>
+    </div>
+    <div class="card">
+      <div class="t-label">狀態</div>
+      <div class="t-val" id="vSt">--</div>
+      <div class="t-unit" id="vStD">&nbsp;</div>
+    </div>
+  </div>
+
+  <!-- 錄影 -->
+  <div class="card rec-card" id="recBar">
+    <div class="rec-circle">
+      <div class="rc-dot" id="recDot"></div>
+      <div class="rc-ring"></div>
+    </div>
+    <div class="rec-body">
+      <div class="rb-label" id="recLbl">閱讀計時 · 待機中</div>
+      <div class="rb-time" id="recTime">00:00</div>
+    </div>
+  </div>
+
+  <!-- 閱讀結果 -->
+  <div class="card res-card" id="resBox">
+    <div class="res-head">📊 閱讀報告</div>
+    <div class="res-grid">
+      <div class="res-item"><div class="ri-label">總閱讀時間</div><div class="ri-val" id="rTot">--</div></div>
+      <div class="res-item"><div class="ri-label">光線良好</div><div class="ri-val" id="rGood">--</div></div>
+      <div class="res-item"><div class="ri-label">平均照度</div><div class="ri-val" id="rLux">--</div></div>
+      <div class="res-item"><div class="ri-label">平均狀態</div><div class="ri-val" id="rSt">--</div></div>
+    </div>
+  </div>
+
+  <!-- 趨勢圖 -->
+  <div class="card">
+    <div class="chart-top">
+      <div class="chart-label">光線趨勢（60秒）</div>
+      <div class="chart-dot">● 即時</div>
+    </div>
+    <div class="chart-box"><canvas id="cv"></canvas></div>
+    <div class="chart-btm"><span>60 秒前</span><span>現在</span></div>
+  </div>
+
+</div>
+
+<!-- 按鈕 -->
+<button class="connect-btn go" id="btnBle" onclick="go()">🔗 連線 micro:bit</button>
+
+<div class="tip-bar">
+  <span>🌟</span> 好光線，好視力！記得每 30 分鐘休息看遠方 <span>🌟</span>
+</div>
+
+<script>
+// ====================================================
+// BLE + 資料處理（跟 v3 完全相同的底層邏輯）
+// ====================================================
+var UART = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+var dev = null;
+var linked = false;
+var buf = '';
+var light = 0;
+var lux = 0;
+var isRec = false;
+var chart = [];
+
+// 連線
+function go(){
+  if(linked){ disc(); return; }
+  conn();
+}
+
+function conn(){
+  var b = document.getElementById('btnBle');
+  b.disabled = true;
+  b.textContent = '🔍 搜尋中...';
+
+  navigator.bluetooth.requestDevice({
+    filters:[{namePrefix:'BBC micro:bit'}],
+    optionalServices:[UART]
+  })
+  .then(function(d){
+    dev = d;
+    dev.addEventListener('gattserverdisconnected', onDisc);
+    return dev.gatt.connect();
+  })
+  .then(function(server){
+    return server.getPrimaryService(UART);
+  })
+  .then(function(svc){
+    return svc.getCharacteristics();
+  })
+  .then(function(chars){
+    var promises = [];
+    for(var i=0; i<chars.length; i++){
+      (function(c){
+        c.addEventListener('characteristicvaluechanged', onRx);
+        promises.push(c.startNotifications().catch(function(){}));
+      })(chars[i]);
+    }
+    return Promise.all(promises);
+  })
+  .then(function(){
+    linked = true;
+    document.getElementById('bleTag').className = 'ble-pill on';
+    document.getElementById('bleTag').textContent = '已連線 ✓';
+    document.getElementById('dash').classList.remove('dim');
+    b.textContent = '🔌 中斷連線';
+    b.className = 'connect-btn stop';
+    b.disabled = false;
+  })
+  .catch(function(){
+    b.textContent = '🔗 連線 micro:bit';
+    b.className = 'connect-btn go';
+    b.disabled = false;
+  });
+}
+
+function disc(){
+  if(dev && dev.gatt.connected) dev.gatt.disconnect();
+  onDisc();
+}
+
+function onDisc(){
+  linked = false; buf = '';
+  document.getElementById('bleTag').className = 'ble-pill off';
+  document.getElementById('bleTag').textContent = '未連線';
+  document.getElementById('dash').classList.add('dim');
+  var b = document.getElementById('btnBle');
+  b.textContent = '🔗 連線 micro:bit';
+  b.className = 'connect-btn go';
+  b.disabled = false;
+}
+
+function onRx(evt){
+  var bytes = evt.target.value;
+  var text = '';
+  for(var i=0; i<bytes.byteLength; i++){
+    text += String.fromCharCode(bytes.getUint8(i));
+  }
+  buf += text;
+  var lines = buf.split('\n');
+  buf = lines[lines.length - 1];
+  for(var i=0; i<lines.length-1; i++){
+    var msg = lines[i].replace(/\r/g,'').trim();
+    if(msg.length > 0) handle(msg);
+  }
+}
+
+// ====================================================
+// 訊息處理
+// ====================================================
+function handle(msg){
+  if(msg.charAt(0)==='D' && msg.charAt(1)===':'){
+    var data = msg.substring(2).split(',');
+    if(data.length >= 3){
+      light = Number(data[0]);
+      lux = Number(data[1]);
+      showGauge();
+      showStats();
+      addChart(light);
+      if(data.length >= 5){
+        var rf = Number(data[3]);
+        var es = Number(data[4]);
+        if(rf === 1 && !isRec){
+          isRec = true;
+          document.getElementById('recDot').classList.add('on');
+          document.getElementById('recLbl').textContent = '閱讀計時 · 錄影中';
+        }
+        if(rf === 0 && isRec){
+          isRec = false;
+          document.getElementById('recDot').classList.remove('on');
+          document.getElementById('recLbl').textContent = '閱讀計時 · 已停止';
+        }
+        if(rf === 1){
+          document.getElementById('recTime').textContent = fmt(es);
+        }
+      }
+    }
+    return;
+  }
+  if(msg === 'REC:1'){
+    isRec = true;
+    document.getElementById('recDot').classList.add('on');
+    document.getElementById('recLbl').textContent = '閱讀計時 · 錄影中';
+    document.getElementById('recTime').textContent = '00:00';
+    return;
+  }
+  if(msg === 'REC:0'){
+    isRec = false;
+    document.getElementById('recDot').classList.remove('on');
+    document.getElementById('recLbl').textContent = '閱讀計時 · 已停止';
+    return;
+  }
+  if(msg.charAt(0)==='R' && msg.charAt(1)===':'){
+    var d = msg.substring(2).split(',');
+    if(d.length >= 5){
+      showResult(Number(d[0]), Number(d[1]), Number(d[2]), Number(d[3]));
+    }
+    return;
+  }
+  if(msg.charAt(0)==='T' && msg.charAt(1)===':'){
+    document.getElementById('recTime').textContent = msg.substring(2);
+  }
+}
+
+// ====================================================
+// 圓形儀表
+// ====================================================
+function showGauge(){
+  var bar = document.getElementById('gBar');
+  var num = document.getElementById('gNum');
+  var face = document.getElementById('gFace');
+  var glow = document.getElementById('gGlow');
+
+  var pct = light / 255;
+  if(pct > 1) pct = 1;
+  if(pct < 0) pct = 0;
+  var arc = 2 * 3.14159 * 96 * 0.7;
+  bar.setAttribute('stroke-dasharray', (arc * pct) + ' ' + 999);
+
+  num.textContent = light;
+
+  var color, emoji, glowBorder, glowShadow;
+
+  if(light < 190){
+    color = '#ffcc00';
+    emoji = '😴';
+    glowBorder = 'rgba(255,204,0,0.15)';
+    glowShadow = '0 0 30px rgba(255,204,0,0.08)';
+  } else if(light > 230){
+    color = '#ff7766';
+    emoji = '😮';
+    glowBorder = 'rgba(255,119,102,0.15)';
+    glowShadow = '0 0 30px rgba(255,119,102,0.08)';
+  } else {
+    color = '#66ddaa';
+    emoji = '😊';
+    glowBorder = 'rgba(102,221,170,0.15)';
+    glowShadow = '0 0 30px rgba(102,221,170,0.08)';
+  }
+
+  bar.setAttribute('stroke', color);
+  bar.style.filter = 'drop-shadow(0 0 4px ' + color + ')';
+  num.style.color = color;
+  num.style.textShadow = '0 0 12px ' + color;
+  face.textContent = emoji;
+  glow.style.borderColor = glowBorder;
+  glow.style.boxShadow = glowShadow;
+
+  document.getElementById('luxStrip').innerHTML =
+    (isRec ? '🔴 錄影中' : '照度') +
+    ' <b>' + lux + '</b> lux · 感測器正常';
+}
+
+// ====================================================
+// 三格資料 + 狀態氣泡
+// ====================================================
+function showStats(){
+  document.getElementById('vLux').textContent = lux;
+  document.getElementById('vRaw').textContent = light;
+
+  var st = document.getElementById('vSt');
+  var sd = document.getElementById('vStD');
+  var bub = document.getElementById('msgBubble');
+
+  if(light < 190){
+    st.textContent = '偏暗';
+    st.style.color = '#ffcc00';
+    sd.textContent = '< 500 lx';
+    bub.textContent = '💡 光線有點暗喔，打開檯燈會更好！';
+    bub.style.color = '#ffcc00';
+    bub.style.background = 'rgba(255,204,0,0.06)';
+    bub.style.borderColor = 'rgba(255,204,0,0.06)';
+  } else if(light > 230){
+    st.textContent = '偏亮';
+    st.style.color = '#ff7766';
+    sd.textContent = '> 1000 lx';
+    bub.textContent = '🕶️ 光線太強了，小心眼睛會不舒服！';
+    bub.style.color = '#ff7766';
+    bub.style.background = 'rgba(255,119,102,0.06)';
+    bub.style.borderColor = 'rgba(255,119,102,0.06)';
+  } else {
+    st.textContent = '適合';
+    st.style.color = '#66ddaa';
+    sd.textContent = '500-1000';
+    bub.textContent = '✨ 光線剛剛好，是最適合閱讀的亮度！';
+    bub.style.color = '#66ddaa';
+    bub.style.background = 'rgba(102,221,170,0.06)';
+    bub.style.borderColor = 'rgba(102,221,170,0.06)';
+  }
+}
+
+// ====================================================
+// 閱讀結果
+// ====================================================
+function showResult(total, good, avgL, avgLux){
+  document.getElementById('resBox').classList.add('show');
+  document.getElementById('rTot').textContent = fmt(total);
+  document.getElementById('rGood').textContent = fmt(good);
+  document.getElementById('rGood').style.color = '#66ddaa';
+  document.getElementById('rLux').textContent = avgLux + ' lx';
+
+  var rs = document.getElementById('rSt');
+  if(avgL < 190){
+    rs.textContent = '😴 偏暗';
+    rs.style.color = '#ffcc00';
+  } else if(avgL > 230){
+    rs.textContent = '😮 偏亮';
+    rs.style.color = '#ff7766';
+  } else {
+    rs.textContent = '😊 良好';
+    rs.style.color = '#66ddaa';
+  }
+}
+
+function fmt(s){
+  var m = Math.floor(s / 60);
+  var sec = Math.floor(s % 60);
+  return (m<10?'0':'') + m + ':' + (sec<10?'0':'') + sec;
+}
+
+// ====================================================
+// 趨勢圖
+// ====================================================
+function addChart(v){
+  chart.push(v);
+  if(chart.length > 60) chart.shift();
+  drawChart();
+}
+
+function drawChart(){
+  var canvas = document.getElementById('cv');
+  var box = canvas.parentElement.getBoundingClientRect();
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = box.width * dpr;
+  canvas.height = box.height * dpr;
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  var w = box.width, h = box.height;
+  ctx.clearRect(0,0,w,h);
+
+  if(chart.length < 2) return;
+
+  var yLo = h - (190/255)*h;
+  var yHi = h - (230/255)*h;
+  ctx.fillStyle = 'rgba(102,221,170,0.04)';
+  ctx.fillRect(0, yHi, w, yLo - yHi);
+
+  ctx.strokeStyle = 'rgba(255,200,120,0.06)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3,6]);
+  ctx.beginPath();
+  ctx.moveTo(0,yLo); ctx.lineTo(w,yLo);
+  ctx.moveTo(0,yHi); ctx.lineTo(w,yHi);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  var step = w / 59;
+  var off = 60 - chart.length;
+
+  ctx.beginPath();
+  for(var i=0; i<chart.length; i++){
+    var x = (off+i) * step;
+    var y = h - (chart[i]/255) * h;
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  }
+
+  // 線條顏色根據最新光值
+  var lineColor;
+  if(light < 190) lineColor = '#ffcc00';
+  else if(light > 230) lineColor = '#ff7766';
+  else lineColor = '#66ddaa';
+
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = lineColor;
+  ctx.shadowBlur = 4;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  var lx = (off + chart.length-1) * step;
+  var fx = off * step;
+  var gr = ctx.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0, lineColor.replace(')', ',0.1)').replace('#','rgba(').length > 5
+    ? 'rgba(102,221,170,0.08)' : 'rgba(102,221,170,0.08)');
+
+  // 簡單版漸層
+  if(light < 190){
+    gr.addColorStop(0,'rgba(255,204,0,0.08)');
+  } else if(light > 230){
+    gr.addColorStop(0,'rgba(255,119,102,0.08)');
+  } else {
+    gr.addColorStop(0,'rgba(102,221,170,0.08)');
+  }
+  gr.addColorStop(1,'rgba(0,0,0,0)');
+
+  ctx.lineTo(lx, h);
+  ctx.lineTo(fx, h);
+  ctx.closePath();
+  ctx.fillStyle = gr;
+  ctx.fill();
+
+  var lastY = h - (chart[chart.length-1]/255) * h;
+  ctx.beginPath();
+  ctx.arc(lx, lastY, 3, 0, 6.28);
+  ctx.fillStyle = lineColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(lx, lastY, 7, 0, 6.28);
+  ctx.fillStyle = lineColor.replace(')',',0.15)');
+  if(light < 190) ctx.fillStyle = 'rgba(255,204,0,0.15)';
+  else if(light > 230) ctx.fillStyle = 'rgba(255,119,102,0.15)';
+  else ctx.fillStyle = 'rgba(102,221,170,0.15)';
+  ctx.fill();
+}
+
+window.addEventListener('resize', drawChart);
+
+if(!navigator.bluetooth){
+  document.getElementById('btnBle').disabled = true;
+  document.getElementById('btnBle').textContent = '此瀏覽器不支援藍牙';
+}
+</script>
+</body>
+</html>
