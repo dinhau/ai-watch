@@ -778,19 +778,27 @@ function updateGauge(){
 
   // 252度弧
   const pct=Math.min(currentLight/255,1);
-  const totalArc=2*Math.PI*100*0.7; // 252deg
+  const totalArc=2*Math.PI*100*0.7;
   const filled=totalArc*pct;
   fill.style.strokeDasharray=filled+' '+999;
 
   val.textContent=currentLight;
   readout.textContent=currentLux;
 
-  const colors={'-1':['var(--yellow)','😴'],'0':['var(--green)','😊'],'1':['var(--red)','😮']};
-  const c=colors[currentState]||colors['0'];
-  fill.style.stroke=c[0];
-  val.style.color=c[0];
-  val.style.textShadow='0 0 20px '+c[0]+',0 0 40px '+c[0].replace(')',',0.15)').replace('var(','rgba(');
-  emoji.textContent=c[1];
+  // 用真正的顏色代碼（不用 var()，Bluefy 才能正常顯示）
+  let color,glowColor,face;
+  if(currentState===-1){
+    color='#ffcc00';glowColor='rgba(255,204,0,0.35)';face='😴';
+  }else if(currentState===1){
+    color='#ff4444';glowColor='rgba(255,68,68,0.35)';face='😮';
+  }else{
+    color='#00ff66';glowColor='rgba(0,255,102,0.35)';face='😊';
+  }
+
+  fill.style.stroke=color;
+  val.style.color=color;
+  val.style.textShadow='0 0 20px '+glowColor+',0 0 40px '+glowColor;
+  emoji.textContent=face;
 
   document.getElementById('readoutBar').innerHTML=
     (isRecording?'◉ REC':'SYS ACTIVE')+
@@ -806,17 +814,17 @@ function updateStats(){
   const pill=document.getElementById('statusPill');
 
   if(currentState===-1){
-    st.textContent='暗';st.style.color='var(--yellow)';
+    st.textContent='暗';st.style.color='#ffcc00';
     sd.textContent='< 500 lx';
     pill.textContent='⚠ 光線不足，再亮一點';
     pill.className='status-pill dark';
   }else if(currentState===0){
-    st.textContent='適合';st.style.color='var(--green)';
+    st.textContent='適合';st.style.color='#00ff66';
     sd.textContent='500-1000';
     pill.textContent='✓ 光線適合閱讀';
     pill.className='status-pill good';
   }else{
-    st.textContent='亮';st.style.color='var(--red)';
+    st.textContent='亮';st.style.color='#ff4444';
     sd.textContent='> 1000';
     pill.textContent='⚠ 光線太強，注意眼睛';
     pill.className='status-pill bright';
@@ -832,9 +840,9 @@ function showResult(totalS,goodS,avgL,avgLux,avgSt){
   const rs=document.getElementById('rState');
   // 用平均光值自己判斷（更可靠）
   let st=judgeState(avgL);
-  if(st===-1){rs.textContent='😴 偏暗';rs.style.color='var(--yellow)'}
-  else if(st===0){rs.textContent='😊 良好';rs.style.color='var(--green)'}
-  else{rs.textContent='😮 偏亮';rs.style.color='var(--red)'}
+  if(st===-1){rs.textContent='😴 偏暗';rs.style.color='#ffcc00'}
+  else if(st===0){rs.textContent='😊 良好';rs.style.color='#00ff66'}
+  else{rs.textContent='😮 偏亮';rs.style.color='#ff4444'}
 }
 
 function formatTime(s){
@@ -886,7 +894,7 @@ function drawChart(){
     const y=h-(chartData[i]/255)*h;
     i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
   }
-  ctx.strokeStyle='var(--cyan)';
+  ctx.strokeStyle='#00f0ff';
   ctx.lineWidth=1.5;
   ctx.shadowColor='rgba(0,240,255,0.5)';
   ctx.shadowBlur=6;
@@ -907,7 +915,7 @@ function drawChart(){
     const lx=(startIdx+chartData.length-1)*step;
     const ly=h-(chartData[chartData.length-1]/255)*h;
     ctx.beginPath();ctx.arc(lx,ly,3,0,Math.PI*2);
-    ctx.fillStyle='var(--cyan)';ctx.fill();
+    ctx.fillStyle='#00f0ff';ctx.fill();
     ctx.beginPath();ctx.arc(lx,ly,6,0,Math.PI*2);
     ctx.fillStyle='rgba(0,240,255,0.2)';ctx.fill();
   }
