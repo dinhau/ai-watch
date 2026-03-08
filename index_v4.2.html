@@ -567,7 +567,7 @@ function drawScoreRing(score){
 }
 
 // ========================================
-// CLAUDE AI DEEP ANALYSIS（智慧規則引擎版）
+// CLAUDE AI DEEP ANALYSIS
 // ========================================
 async function askClaudeAI(){
   if(!latestSession) return;
@@ -580,81 +580,47 @@ async function askClaudeAI(){
   load.className = 'ai-loading';
   resp.className = 'ai-response hid';
 
-  // 模擬思考時間（讓使用者感覺 AI 在分析）
-  await wait(1500);
-
   const s = latestSession;
-  const totalMin = Math.floor(s.totalS / 60);
-  const totalSec = Math.floor(s.totalS % 60);
-  const goodPct = Math.round(s.goodRatio * 100);
-  const avgLux = Math.round(s.avgLux);
+  const prompt = `你是「會判斷光線好壞的AI手錶」科展專案的AI助手，專門分析小學生的閱讀光線環境。
+請用繁體中文、親切口吻（適合小學五年級閱讀），根據以下數據給出個人化分析：
 
-  let report = '';
+📊 本次閱讀數據：
+- 總閱讀時間：${Math.round(s.totalS/60)} 分 ${s.totalS%60} 秒
+- 光線適合時間：${Math.round(s.goodS/60)} 分 ${s.goodS%60} 秒（佔 ${Math.round(s.goodRatio*100)}%）
+- 平均光感測值：${Math.round(s.avgL)}（範圍 0-255，190-230 為適合）
+- 平均照度：約 ${Math.round(s.avgLux)} lux（建議 500-1000 lux）
+- 平均光線評價：${s.avgState}
+- AI 評分：${s.score}/100
+${sessions.length >= 2 ? '- 上次評分：' + sessions[sessions.length-2].score + '/100' : ''}
 
-  // === 1. 整體評語 ===
-  report += '📋 整體評語\n';
-  if(s.score >= 85){
-    report += '太棒了！這次閱讀的光線環境非常好，' + goodPct + '% 的時間都在適合閱讀的光線下，你選的位置很理想！繼續保持這個好習慣 👏\n\n';
-  } else if(s.score >= 70){
-    report += '表現不錯！閱讀了 ' + totalMin + ' 分 ' + totalSec + ' 秒，平均照度約 ' + avgLux + ' lux。雖然有些時候光線不太穩定，但整體來說是及格的閱讀環境 👍\n\n';
-  } else if(s.score >= 50){
-    report += '這次的光線環境普通，只有 ' + goodPct + '% 的時間光線適合閱讀。不過沒關係，知道問題就能改善！建議下次換個光線更好的位置試試 💪\n\n';
-  } else {
-    report += '這次的光線環境不太理想喔！平均照度只有 ' + avgLux + ' lux，' + (s.avgState==='DARK' ? '光線太暗容易讓眼睛疲勞' : '光線太強會造成眩光') + '。不過這正是 AI 手錶存在的意義——幫你發現問題！🔍\n\n';
+請提供：
+1. 📋 整體評語（2-3句，鼓勵為主）
+2. 💡 最重要的 1 個改善建議（具體可行）
+3. 🧪 一個有趣的科學小知識（跟光線或視力相關）
+4. 🎯 下次閱讀的小目標
+
+回覆控制在 150 字以內，用 emoji 讓內容生動有趣。`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = data.content.map(b => b.text || '').join('\n');
+    resp.textContent = text;
+    resp.className = 'ai-response';
+    log('AI 深度分析完成','lc');
+  } catch(e) {
+    resp.textContent = '⚠️ AI 分析需要網路連線。目前離線，請參考上方的規則分析結果。\n（錯誤：' + e.message + '）';
+    resp.className = 'ai-response';
+    log('AI 分析失敗: ' + e.message, 'le');
   }
-
-  // === 2. 改善建議 ===
-  report += '💡 改善建議\n';
-  if(s.avgState === 'DARK'){
-    if(avgLux < 200){
-      report += '目前光線非常暗（約 ' + avgLux + ' lux），建議開啟檯燈，並讓光源從左前方照射（右撇子）。檯燈亮度調到不會在書本上產生陰影就對了。\n\n';
-    } else {
-      report += '光線稍微偏暗（約 ' + avgLux + ' lux），離理想的 500 lux 還有段距離。試試把窗簾打開，或是再加一盞燈。\n\n';
-    }
-  } else if(s.avgState === 'BRIGHT'){
-    report += '光線偏強（約 ' + avgLux + ' lux），超過了建議的 1000 lux。如果是陽光直射，可以拉上薄窗簾；如果是燈太亮，調低一檔。避免光線直射眼睛或書本反光。\n\n';
-  } else {
-    if(goodPct < 80){
-      report += '雖然平均光線不錯，但有 ' + (100-goodPct) + '% 的時間光線不穩定。可能是雲遮住太陽或有人走過擋到光。建議用檯燈作為穩定的主要光源，比較不受環境影響。\n\n';
-    } else {
-      report += '光線環境很好！建議維持目前的閱讀位置。小提醒：每 20-30 分鐘記得看看遠處讓眼睛休息一下。\n\n';
-    }
-  }
-
-  // === 3. 科學小知識（隨機選一個）===
-  const facts = [
-    '🧪 科學小知識：人的瞳孔在暗處會放大到 8mm，在亮處只有 2mm。這就像相機光圈，暗的時候要「開更大」才能看清楚，所以眼睛肌肉更累！',
-    '🧪 科學小知識：研究發現，每天在戶外待 80-120 分鐘的小朋友，近視風險降低了 23%！因為陽光會刺激眼睛分泌「多巴胺」，幫助控制眼球的形狀。',
-    '🧪 科學小知識：500 lux 大約等於陰天窗邊的亮度，1000 lux 大約是晴天窗邊。而直射陽光可以高達 100,000 lux！我們的眼睛其實很厲害，能適應這麼大的範圍。',
-    '🧪 科學小知識：LED 白光其實包含很多藍光。長時間看藍光會讓睫狀肌持續緊張，這也是為什麼晚上看手機會覺得眼睛特別累。暖黃色的燈光對眼睛比較友善。',
-    '🧪 科學小知識：人類眨眼的頻率平均是每分鐘 15-20 次，但專注看書或螢幕時會降到只剩 3-4 次！這就是為什麼看久了眼睛會乾澀——記得多眨眼喔！',
-    '🧪 科學小知識：視網膜上的「視桿細胞」負責在暗處看東西，「視錐細胞」負責在亮處看彩色。暗處看不到顏色，就是因為只有視桿細胞在工作！'
-  ];
-  report += facts[Math.floor(Math.random() * facts.length)] + '\n\n';
-
-  // === 4. 下次目標 ===
-  report += '🎯 下次閱讀小目標\n';
-  if(s.score >= 80){
-    report += '挑戰連續 3 次都拿到 80 分以上！試試在不同時段（早上、下午、晚上）閱讀，比較哪個時段的光線最好。';
-  } else if(s.score >= 60){
-    report += '目標：讓好光比例超過 ' + Math.min(95, goodPct + 15) + '%！試試調整你的位置或燈光，看看能不能讓分數提高到 ' + Math.min(100, s.score + 15) + ' 分。';
-  } else {
-    report += '先從找到一個好位置開始！目標是讓平均照度在 500-1000 lux 之間。可以試試不同的房間和燈光組合，用 AI 手錶找出最佳閱讀位置。';
-  }
-
-  // 如果有歷史趨勢
-  if(sessions.length >= 2){
-    const prev = sessions[sessions.length - 2];
-    const diff = s.score - prev.score;
-    report += '\n\n📊 跟上次比較：';
-    if(diff > 0) report += '進步了 ' + diff + ' 分！你的閱讀環境越來越好了 🎉';
-    else if(diff < 0) report += '下降了 ' + Math.abs(diff) + ' 分，可能是換了不同的地方。試試回到上次得分高的位置。';
-    else report += '跟上次一樣穩定，持續保持！';
-  }
-
-  resp.textContent = report;
-  resp.className = 'ai-response';
-  log('AI 深度分析完成','lc');
 
   load.className = 'ai-loading hid';
   btn.disabled = false;
